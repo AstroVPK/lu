@@ -4,7 +4,7 @@
 #include <cassert>
 
 //#define VERBOSE
-#define EXAMPLE
+//#define EXAMPLE
 
 void LU_decomp(const int n, const int lda, double* const A) {
     // LU decomposition without pivoting (Doolittle algorithm)
