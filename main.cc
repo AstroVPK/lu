@@ -2,7 +2,10 @@
 #include <cstdio>
 #include <omp.h>
 #include <cassert>
+#include <cilk/cilk.h>
+#include <cilk/reducer_opadd.h>
 
+#define VISHAL
 //#define VERBOSE
 //#define EXAMPLE
 
@@ -29,17 +32,29 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
     // In-place decomposition of form A=LU
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
+    double invDiag = 0.0;
     for (int i = 0; i < n; ++i) {
-        for (int j = i; j < n; ++j) {
+        for (int k = 0; k < i; ++k) {
+            A[i*lda + i] -= A[k*lda + i]*A[i*lda + k];
+        }
+        invDiag = 1.0/A[i*lda + i];
+        #pragma ivdep
+        #pragma vector always aligned vecremainder
+        #pragma simd
+        for (int j = i + 1; j < n; ++j) {
+            A[i*lda + j] = A[i*lda + j]*invDiag;
+        }
+        #pragma omp parallel for default(none) shared(n, lda, A, i)
+        for (int j = i + 1; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
                 A[j*lda + i] -= A[k*lda + i]*A[j*lda + k];
             }
         }
+        #pragma omp parallel for default(none) shared(n, lda, A, i, invDiag)
         for (int j = i + 1; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
-                A[i*lda + j] -= A[k*lda +j]*A[i*lda + k];
+                A[i*lda + j] -= A[k*lda + j]*A[i*lda + k]*invDiag;
             }
-            A[i*lda + j] = A[i*lda + j]/A[i*lda + i];
         }
     }
 }
@@ -296,11 +311,19 @@ int main(const int argc, const char** argv) {
         const double tStart = omp_get_wtime(); // Start timing
         for (int m = 0; m < nMatrices; m++) {
             double* matrixA = (double*)(&dataA[m*containerSize]);
-            LU_decomp_vishal(n, lda, matrixA);
+            #ifdef VISHAL
+                LU_decomp_vishal(n, lda, matrixA);
+            #else
+                LU_decomp(n, lda, matrixA);
+            #endif
         }
         const double tEnd = omp_get_wtime(); // End timing
 
-        if (trial == 1) VerifyResult_vishal(n, lda, (double*)(&dataA[0]), referenceMatrix);
+        #ifdef VISHAL
+            if (trial == 1) VerifyResult_vishal(n, lda, (double*)(&dataA[0]), referenceMatrix);
+        #else
+            if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
+        #endif
 
         if (trial > skipTrials) { // Collect statistics
             rate  += HztoPerf/(tEnd - tStart);
