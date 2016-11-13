@@ -30,15 +30,11 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
     for (int i = 0; i < n; ++i) {
-        #pragma ivdep
-        #pragma omp parallel for default(none) shared(A, lda, n, i)
         for (int j = i; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
                 A[j*lda + i] -= A[k*lda + i]*A[j*lda + k];
             }
         }
-        #pragma ivdep
-        #pragma omp parallel for default(none) shared(A, lda, n, i)
         for (int j = i + 1; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
                 A[i*lda + j] -= A[k*lda +j]*A[i*lda + k];
