@@ -35,25 +35,25 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
     double invDiag = 0.0;
     for (int i = 0; i < n; ++i) {
         for (int k = 0; k < i; ++k) {
-            A[i*lda + i] -= A[k*lda + i]*A[i*lda + k];
+            A[i*lda + i] -= A[i*lda + k]*A[k*lda + i];
         }
         invDiag = 1.0/A[i*lda + i];
         #pragma ivdep
         #pragma vector always aligned vecremainder
         #pragma simd
         for (int j = i + 1; j < n; ++j) {
-            A[i*lda + j] = A[i*lda + j]*invDiag;
+            A[j*lda + i] = A[j*lda + i]*invDiag;
         }
         #pragma omp parallel for default(none) shared(n, lda, A, i)
         for (int j = i + 1; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
-                A[j*lda + i] -= A[k*lda + i]*A[j*lda + k];
+                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
             }
         }
         #pragma omp parallel for default(none) shared(n, lda, A, i, invDiag)
         for (int j = i + 1; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
-                A[i*lda + j] -= A[k*lda + j]*A[i*lda + k]*invDiag;
+                A[j*lda + i] -= A[j*lda + k]*A[k*lda + i]*invDiag;
             }
         }
     }
@@ -81,84 +81,6 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
         for (int j = 0; j < n; j++) {
             for (int k = 0; k < n; k++) {
   	            A[i*lda + j] += L[i*lda + k]*U[k*lda + j];
-            }
-        }
-    }
-
-    double deviation1 = 0.0;
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            deviation1 += (refA[i*lda + j] - A[i*lda + j])*(refA[i*lda + j] - A[i*lda + j]);
-        }
-    }
-    deviation1 /= (double)(n*lda);
-    if (isnan(deviation1) || (deviation1 > 1.0e-2)) {
-        printf("ERROR: LU is not equal to A (deviation1=%e)!\n", deviation1);
-    }
-
-    #ifdef VERBOSE
-        printf("\n(L-D)+U:\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++)
-            printf("%10.3e", LU[i*lda+j]);
-            printf("\n");
-        }
-
-        printf("\nL:\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++)
-            printf("%10.3e", L[i*lda+j]);
-            printf("\n");
-        }
-
-        printf("\nU:\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++)
-            printf("%10.3e", U[i*lda+j]);
-            printf("\n");
-        }
-
-        printf("\nLU:\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++)
-            printf("%10.3e", A[i*lda+j]);
-            printf("\n");
-        }
-
-        printf("\nA:\n");
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++)
-            printf("%10.3e", refA[i*lda+j]);
-            printf("\n");
-        }
-
-        printf("deviation1=%e\n", deviation1);
-    #endif
-}
-
-void VerifyResult_vishal(const int n, const int lda, double* LU, double* refA) {
-
-    // Verifying that A=LU
-    double A[n*lda];
-    double L[n*lda];
-    double U[n*lda];
-    A[:] = 0.0f;
-    L[:] = 0.0f;
-    U[:] = 0.0f;
-    for (int i = 0; i < n; i++) {
-        for (int j = i; j < n; j++) {
-            L[i*lda + j] = LU[i*lda + j];
-        }
-        L[i*lda + i] = 1.0f;
-        for (int j = 0; j <= i; j++) {
-            U[i*lda + j] = LU[i*lda + j];
-        }
-    }
-
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            for (int k = 0; k < n; k++) {
-                A[i*lda + j] += L[k*lda + j]*U[i*lda + k];
             }
         }
     }
@@ -319,11 +241,7 @@ int main(const int argc, const char** argv) {
         }
         const double tEnd = omp_get_wtime(); // End timing
 
-        #ifdef VISHAL
-            if (trial == 1) VerifyResult_vishal(n, lda, (double*)(&dataA[0]), referenceMatrix);
-        #else
-            if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
-        #endif
+        if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
 
         if (trial > skipTrials) { // Collect statistics
             rate  += HztoPerf/(tEnd - tStart);
