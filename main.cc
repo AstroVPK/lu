@@ -2,19 +2,18 @@
 #include <cstdio>
 #include <omp.h>
 #include <cassert>
-#include <cilk/cilk.h>
-#include <cilk/reducer_opadd.h>
+#include "advisor-annotate.h"
 
 #define VISHAL
+//#define NAIVE
 //#define VERBOSE
-//#define EXAMPLE
 
 void LU_decomp(const int n, const int lda, double* const A) {
     // LU decomposition without pivoting (Doolittle algorithm)
     // In-place decomposition of form A=LU
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
-
+    __assume_aligned(A, 64);
     for (int i = 1; i < n; i++) {
         for (int k = 0; k < i; k++) {
             A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
@@ -32,29 +31,49 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
     // In-place decomposition of form A=LU
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
-    double invDiag = 0.0;
+    __assume_aligned(A, 64);
+    int cache_length = 64, num_peel = 0;
+    for (int i = 1; i < n; i++) {
+        for (int k = 0; k < i; k++) {
+            A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
+            num_peel = (n - k - 1)%cache_length;
+            //#pragma omp parallel for shared(n, lda, A, i, k, num_peel, cache_length)
+            ANNOTATE_SITE_BEGIN(solve);
+            for (int jj = k + 1; jj < n - num_peel; jj += cache_length) {
+                #pragma simd
+                #pragma ivdep
+                for (int j = jj; j < jj + cache_length; ++j) {
+	                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+                }
+            }
+            ANNOTATE_SITE_END();
+            #pragma simd
+            #pragma ivdep
+            for (int j = n - num_peel; j < n; ++j) {
+                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+            }
+        }
+    }
+}
+
+void LU_decomp_naive(const int n, const int lda, double* const A) {
+    // LU decomposition without pivoting (Doolittle algorithm)
+    // In-place decomposition of form A=LU
+    // L is returned below main diagonal of A
+    // U is returned at and above main diagonal
     for (int i = 0; i < n; ++i) {
-        for (int k = 0; k < i; ++k) {
-            A[i*lda + i] -= A[i*lda + k]*A[k*lda + i];
-        }
-        invDiag = 1.0/A[i*lda + i];
-        #pragma ivdep
-        #pragma vector always aligned vecremainder
-        #pragma simd
-        for (int j = i + 1; j < n; ++j) {
-            A[j*lda + i] = A[j*lda + i]*invDiag;
-        }
         #pragma omp parallel for default(none) shared(n, lda, A, i)
-        for (int j = i + 1; j < n; ++j) {
+        for (int j = i; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
                 A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
             }
         }
-        #pragma omp parallel for default(none) shared(n, lda, A, i, invDiag)
+        #pragma omp parallel for default(none) shared(n, lda, A, i)
         for (int j = i + 1; j < n; ++j) {
             for (int k = 0; k < i; ++k) {
-                A[j*lda + i] -= A[j*lda + k]*A[k*lda + i]*invDiag;
+                A[j*lda + i] -= A[j*lda + k]*A[k*lda + i];
             }
+            A[j*lda + i] = A[j*lda + i]/A[i*lda + i];
         }
     }
 }
@@ -136,7 +155,7 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
     #endif
 }
 
-template <typename valT>
+/*template <typename valT>
 void viewMatrix(const int n, const int m, const int lda, const valT* const A, const int nStart = 0, const int mStart = 0) {
     //      n: Number of rows to view
     //      m: Number of columns to view
@@ -144,42 +163,15 @@ void viewMatrix(const int n, const int m, const int lda, const valT* const A, co
     //      A: matrix to view
     // nStart: Row start location of view
     // mStart: Column start location of view
-    for (int colCtr = mStart; colCtr < mStart + m; ++colCtr) {
-        for (int rowCtr = nStart; rowCtr < nStart + n; ++rowCtr) {
-            printf("%+3.2e ", A[colCtr*lda + rowCtr]);
+    for (int rowCtr = nStart; rowCtr < nStart + n; ++rowCtr) {
+        for (int colCtr = mStart; colCtr < mStart + m; ++colCtr) {
+            printf("%+3.2e ", A[rowCtr*lda + colCtr]);
         }
         printf("\n");
     }
-}
-
-void testView() {
-    const int n = 8;
-    const int lda = n + 1;
-    double *A = (double*)_mm_malloc(sizeof(double)*n*lda, 64);
-    for (int colCtr = 0; colCtr < n; ++colCtr) {
-        double sum = 0.0;
-        for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
-            A[colCtr*lda + rowCtr] = (double)(colCtr*n + rowCtr);
-            sum += (double)(colCtr*n + rowCtr);
-        }
-        sum -= A[colCtr*lda + colCtr];
-        A[colCtr*lda + colCtr] = 2.0*sum;
-    }
-    A[(n - 1)*lda + n] = 0.0;
-    printf("    A    \n");
-    printf("---------\n");
-    viewMatrix(n, n, lda, A);
-    printf("   aux   \n");
-    printf("---------\n");
-    viewMatrix(1, n, lda, A, n, 0);
-}
+}*/
 
 int main(const int argc, const char** argv) {
-
-    #ifdef EXAMPLE
-        testView();
-    #endif
-
     // Problem size and other parameters
     const int n=512;
     const int lda=528;
@@ -216,41 +208,104 @@ int main(const int argc, const char** argv) {
     referenceMatrix[0:n*lda] = ((double*)dataA)[0:n*lda];
 
     // Perform benchmark
-    printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n", nMatrices, n, n,
-    #ifndef __MIC__
-	   "CPU"
-    #else
-	   "MIC"
-    #endif
-	   );
 
-    double rate = 0, dRate = 0; // Benchmarking data
-    const int nTrials = 10;
-    const int skipTrials = 3; // First step is warm-up on Xeon Phi coprocessor
-    printf("\033[1m%5s %10s %8s\033[0m\n", "Trial", "Time, s", "GFLOP/s");
-    for (int trial = 1; trial <= nTrials; trial++) {
+    #ifdef VISHAL
+        printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n", nMatrices, n, n,
+        #ifndef __MIC__
+           "CPU"
+        #else
+           "MIC"
+        #endif
+           );
+        printf("Vishal's version\n");
 
-        const double tStart = omp_get_wtime(); // Start timing
-        for (int m = 0; m < nMatrices; m++) {
-            double* matrixA = (double*)(&dataA[m*containerSize]);
-            #ifdef VISHAL
+        double rate = 0, dRate = 0; // Benchmarking data
+        const int nTrials = 5;
+        const int skipTrials = 3; // First step is warm-up on Xeon Phi coprocessor
+        printf("\033[1m%5s %10s %8s\033[0m\n", "Trial", "Time, s", "GFLOP/s");
+        for (int trial = 1; trial <= nTrials; trial++) {
+
+            const double tStart = omp_get_wtime(); // Start timing
+
+            for (int m = 0; m < nMatrices; m++) {
+                double* matrixA = (double*)(&dataA[m*containerSize]);
                 LU_decomp_vishal(n, lda, matrixA);
-            #else
+            }
+
+            const double tEnd = omp_get_wtime(); // End timing
+            if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
+            if (trial > skipTrials) { // Collect statistics
+                rate  += HztoPerf/(tEnd - tStart);
+                dRate += HztoPerf*HztoPerf/((tEnd - tStart)*(tEnd-tStart));
+            }
+            printf("%5d %10.3e %8.2f %s\n", trial, (tEnd-tStart), HztoPerf/(tEnd-tStart), (trial<=skipTrials?"*":""));
+            fflush(stdout);
+        }
+    #elif defined NAIVE
+        printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n", nMatrices, n, n,
+        #ifndef __MIC__
+           "CPU"
+        #else
+           "MIC"
+        #endif
+           );
+        printf("Naive Dolittle Algorithm\n");
+
+        double rate = 0, dRate = 0; // Benchmarking data
+        const int nTrials = 10;
+        const int skipTrials = 3; // First step is warm-up on Xeon Phi coprocessor
+        printf("\033[1m%5s %10s %8s\033[0m\n", "Trial", "Time, s", "GFLOP/s");
+        for (int trial = 1; trial <= nTrials; trial++) {
+
+            const double tStart = omp_get_wtime(); // Start timing
+
+            for (int m = 0; m < nMatrices; m++) {
+                double* matrixA = (double*)(&dataA[m*containerSize]);
+                LU_decomp_naive(n, lda, matrixA);
+            }
+
+            const double tEnd = omp_get_wtime(); // End timing
+            if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
+            if (trial > skipTrials) { // Collect statistics
+                rate  += HztoPerf/(tEnd - tStart);
+                dRate += HztoPerf*HztoPerf/((tEnd - tStart)*(tEnd-tStart));
+            }
+            printf("%5d %10.3e %8.2f %s\n", trial, (tEnd-tStart), HztoPerf/(tEnd-tStart), (trial<=skipTrials?"*":""));
+            fflush(stdout);
+        }
+    #else
+        printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n", nMatrices, n, n,
+        #ifndef __MIC__
+           "CPU"
+        #else
+           "MIC"
+        #endif
+           );
+        printf("Andrey's version\n");
+
+        double rate = 0, dRate = 0; // Benchmarking data
+        const int nTrials = 5;
+        const int skipTrials = 3; // First step is warm-up on Xeon Phi coprocessor
+        printf("\033[1m%5s %10s %8s\033[0m\n", "Trial", "Time, s", "GFLOP/s");
+        for (int trial = 1; trial <= nTrials; trial++) {
+
+            const double tStart = omp_get_wtime(); // Start timing
+
+            for (int m = 0; m < nMatrices; m++) {
+                double* matrixA = (double*)(&dataA[m*containerSize]);
                 LU_decomp(n, lda, matrixA);
-            #endif
+            }
+
+            const double tEnd = omp_get_wtime(); // End timing
+            if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
+            if (trial > skipTrials) { // Collect statistics
+                rate  += HztoPerf/(tEnd - tStart);
+                dRate += HztoPerf*HztoPerf/((tEnd - tStart)*(tEnd-tStart));
+            }
+            printf("%5d %10.3e %8.2f %s\n", trial, (tEnd-tStart), HztoPerf/(tEnd-tStart), (trial<=skipTrials?"*":""));
+            fflush(stdout);
         }
-        const double tEnd = omp_get_wtime(); // End timing
-
-        if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
-
-        if (trial > skipTrials) { // Collect statistics
-            rate  += HztoPerf/(tEnd - tStart);
-            dRate += HztoPerf*HztoPerf/((tEnd - tStart)*(tEnd-tStart));
-        }
-
-        printf("%5d %10.3e %8.2f %s\n", trial, (tEnd-tStart), HztoPerf/(tEnd-tStart), (trial<=skipTrials?"*":""));
-        fflush(stdout);
-    }
+    #endif
     rate/=(double)(nTrials-skipTrials);
     dRate=sqrt(dRate/(double)(nTrials-skipTrials)-rate*rate);
     printf("-----------------------------------------------------\n");

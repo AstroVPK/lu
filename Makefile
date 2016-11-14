@@ -1,6 +1,6 @@
 CXX = icpc
-CXXFLAGS=-qopenmp -g
-CPUFLAGS = $(CXXFLAGS) -xhost
+CXXFLAGS=-qopenmp -g -I/opt/intel/advisor_xe/include
+CPUFLAGS = $(CXXFLAGS) -xhost -O3
 MICFLAGS = $(CXXFLAGS) -mmic
 OPTFLAGS = -qopt-report -qopt-report-file=$@.optrpt
 
