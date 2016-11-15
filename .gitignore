@@ -1,6 +1,9 @@
 app-CPU
 app-CPU-andrey
 app-CPU-vishal
+app-CPU-naive
 main.o.optrpt
 andrey/
 vishal/
+naive/
+main.o

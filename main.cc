@@ -3,6 +3,8 @@
 #include <omp.h>
 #include <cassert>
 
+//#define TRACK
+
 #define VISHAL
 //#define NAIVE
 //#define VERBOSE
@@ -15,8 +17,8 @@ void LU_decomp(const int n, const int lda, double* const A) {
     for (int i = 1; i < n; i++) {
         for (int k = 0; k < i; k++) {
             A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-            #pragma simd
-            #pragma ivdep
+            //#pragma simd
+            //#pragma ivdep
             for (int j = k + 1; j < n; j++) {
 	            A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
             }
@@ -32,33 +34,38 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
     int cache_length = 8, num_peel = 0;
     for (int i = 1; i < n; i++) {
         for (int k = 0; k < i; k++) {
-            /*printf("i: %d; k: %d\n", i, k);
-            printf("%d %d\n",i*lda + k, k*lda + k);
-            printf("Align of A[%d]: %ld\n", i*lda + k, (long)&A[i*lda + k]%64);
-            printf("line: %d\n", (i*lda + k)/8);*/
+            #ifdef TRACK
+                printf("i: %d; k: %d\n", i, k);
+                printf("i*lda + k: %d; k*lda + l: %d\n",i*lda + k, k*lda + k);
+                printf("Align of A[%d]: %ld\n", i*lda + k, (long)&A[i*lda + k]%64);
+                printf("Cache line: %d\n", (i*lda + k)/8);
+            #endif
             A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
 
             num_peel = (n - k - 1)%cache_length; // Spread over core 0
-            #pragma simd
-            #pragma ivdep
+            //#pragma simd
+            //#pragma ivdep
             for (int j = k + 1; j < k + 1 + num_peel; ++j) {
-                /*printf("i: %d; k: %d; j: %d\n", i, k, j);
-                printf("%d %d %d\n",i*lda + j, i*lda + k, k*lda + j);
-                printf("Align of A[%d]: %ld\n", i*lda + j, (long)&A[i*lda + j]%64);
-                printf("line: %d\n", (i*lda + j)/8);*/
+                #ifdef TRACK
+                    printf("i: %d; k: %d; j: %d\n", i, k, j);
+                    printf("i*lda + j: %d; i*lda + k: %d; k*lda + j: %d\n",i*lda + j, i*lda + k, k*lda + j);
+                    printf("Align of A[%d]: %ld\n", i*lda + j, (long)&A[i*lda + j]%64);
+                    printf("Cache line: %d\n", (i*lda + j)/8);
+                #endif
                 A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
             }
 
-            //#pragma omp parallel for default(none) shared(n, lda, A, i, k, num_peel, cache_length)
+            #pragma omp parallel for default(none) shared(n, lda, A, i, k, num_peel, cache_length)
             for (int jj = k + 1 + num_peel; jj < n; jj += cache_length) {
-                #pragma simd
-                #pragma ivdep
+                //#pragma simd
+                //#pragma ivdep
                 for (int j = jj; j < jj + cache_length; ++j) {
-                    /*printf("i: %d; k: %d; jj: %d; j: %d\n", i, k, jj, j);
-                    printf("%d %d %d\n",i*lda + j, i*lda + k, k*lda + j);
-                    printf("Align of A[%d]: %ld\n", i*lda + j, (long)&A[i*lda + j]%64);
-                    printf("line: %d\n", (i*lda + j)/8);*/
-                    //if ((long)&A[i*lda + j]%64 != 0L) printf("Oops!\n");
+                    #ifdef TRACK
+                        printf("i: %d; k: %d; jj: %d; j: %d\n", i, k, jj, j);
+                        printf("i*lda + j: %d; i*lda + k: %d; k*lda + j: %d\n",i*lda + j, i*lda + k, k*lda + j);
+                        printf("Align of A[%d]: %ld\n", i*lda + j, (long)&A[i*lda + j]%64);
+                        printf("Cache line: %d\n", (i*lda + j)/8);
+                    #endif
 	                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
                 }
             }
