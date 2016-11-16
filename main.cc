@@ -5,8 +5,8 @@
 
 //#define TRACK
 
-#define VISHAL
-//#define NAIVE
+//#define VISHAL
+#define NAIVE
 
 void LU_decomp(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -89,6 +89,12 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
     // U is returned at and above main diagonal
     const int cache_line = 8, num_threads = 4;
     omp_set_num_threads(num_threads);
+    double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
+    for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
+        for (int colCtr = 0; colCtr < n; ++colCtr) {
+            ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
+        }
+    }
     double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
     #pragma omp parallel
     {
@@ -98,22 +104,25 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
             int tid = omp_get_thread_num();
             holders[cache_line*tid] = A[i*lda + j];
             for (int k = 0; k < i; ++k) {
-                holders[cache_line*tid] -= A[i*lda + k]*A[k*lda + j];
+                holders[cache_line*tid] -= A[i*lda + k]*ATran[j*lda + k];
             }
             A[i*lda + j] = holders[cache_line*tid];
+            ATran[j*lda + i] = holders[cache_line*tid];
         }
         #pragma omp for schedule(static)
         for (int j = i + 1; j < n; ++j) {
             int tid = omp_get_thread_num();
             holders[cache_line*tid] = A[j*lda + i];
             for (int k = 0; k < i; ++k) {
-                holders[cache_line*tid] -= A[j*lda + k]*A[k*lda + i];
+                holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
             }
             A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
+            ATran[i*lda + j] = holders[cache_line*tid]/A[i*lda + i];
         }
     }
     }
     _mm_free(holders);
+    _mm_free(ATran);
 }
 
 void VerifyResult(const int n, const int lda, double* LU, double* refA) {
