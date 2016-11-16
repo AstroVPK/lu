@@ -1,6 +1,6 @@
 CXX = icpc -Wall
 CXXFLAGS=-qopenmp
-CPUFLAGS = $(CXXFLAGS) -xhost -O2
+CPUFLAGS = $(CXXFLAGS) -xhost -O3
 MICFLAGS = $(CXXFLAGS) -mmic
 OPTFLAGS = -qopt-report -qopt-report-file=$@.optrpt
 
