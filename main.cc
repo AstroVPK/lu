@@ -2,10 +2,12 @@
 #include <cstdio>
 #include <omp.h>
 #include <cassert>
+#include <unistd.h>
 
 //#define TRACK
 
 //#define VISHAL
+//#define VISHALPARALLEL
 #define NAIVE
 
 void LU_decomp(const int n, const int lda, double* const A) {
@@ -31,12 +33,14 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
     __assume_aligned(A, 64);
-    const int num_threads = 4;
+    const int num_threads = sysconf(_SC_NPROCESSORS_ONLN)/2; // No hyperthreading
     omp_set_num_threads(num_threads);
-    #pragma omp parallel
-    {
-    const int cache_length = 8;
-    int num_peel = 0, strip_size = 0;
+#ifdef VISHALPARALLEL
+#pragma omp parallel
+{
+#endif
+    const int cache_length = 8, strip_size = cache_length;
+    int num_peel = 0, block_size = 0;
     for (int i = 1; i < n; i++) {
         for (int k = 0; k < i; k++) {
 #ifdef TRACK
@@ -45,9 +49,15 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
             printf("Align of A[%d]: %ld\n", i*lda + k, (long)&A[i*lda + k]%64);
             printf("Cache line: %d\n", (i*lda + k)/8);
 #endif
-            #pragma omp master
+#ifdef VISHALPARALLEL
+#pragma omp master
+{
+#endif
             A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-
+#ifdef VISHALPARALLEL
+}
+#pragma omp flush
+#endif
             num_peel = (n - k - 1)%cache_length; // Spread over core 0
             #pragma omp simd
             #pragma ivdep
@@ -58,12 +68,21 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
                 printf("Align of A[%d]: %ld\n", i*lda + j, (long)&A[i*lda + j]%64);
                 printf("Cache line: %d\n", (i*lda + j)/8);
 #endif
-                #pragma omp master
+#ifdef VISHALPARALLEL
+#pragma omp master
+{
+#endif
                 A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+#ifdef VISHALPARALLEL
+}
+#pragma omp flush
+#endif
             }
 
-            strip_size = (n - k + 1 + num_peel)/num_threads;
-            #pragma omp for schedule(static, (n - k + 1 + num_peel)/4)
+            block_size = (n - k - 1 - num_peel)/num_threads;
+#ifdef VISHALPARALLEL
+#pragma omp for schedule(static, block_size)
+#endif
             for (int jj = k + 1 + num_peel; jj < n; jj += strip_size) {
                 #pragma omp simd
                 #pragma ivdep
@@ -79,7 +98,9 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
             }
         }
     }
-    }
+#ifdef VISHALPARALLEL
+}
+#endif
 }
 
 void LU_decomp_naive(const int n, const int lda, double* const A) {
@@ -87,7 +108,7 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
     // In-place decomposition of form A=LU
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
-    const int cache_line = 8, num_threads = 4;
+    const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN)/2;
     omp_set_num_threads(num_threads);
     double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
     for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
@@ -96,10 +117,10 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
         }
     }
     double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
-    #pragma omp parallel
-    {
+#pragma omp parallel
+{
     for (int i = 0; i < n; ++i) {
-        #pragma omp for schedule(static)
+#pragma omp for schedule(static)
         for (int j = i; j < n; ++j) {
             int tid = omp_get_thread_num();
             holders[cache_line*tid] = A[i*lda + j];
@@ -107,9 +128,9 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
                 holders[cache_line*tid] -= A[i*lda + k]*ATran[j*lda + k];
             }
             A[i*lda + j] = holders[cache_line*tid];
-            ATran[j*lda + i] = holders[cache_line*tid];
+            ATran[j*lda + i] = A[i*lda + j];
         }
-        #pragma omp for schedule(static)
+#pragma omp for schedule(static)
         for (int j = i + 1; j < n; ++j) {
             int tid = omp_get_thread_num();
             holders[cache_line*tid] = A[j*lda + i];
@@ -117,7 +138,7 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
                 holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
             }
             A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
-            ATran[i*lda + j] = holders[cache_line*tid]/A[i*lda + i];
+            ATran[i*lda + j] = A[j*lda + i];
         }
     }
     }
@@ -237,13 +258,17 @@ int main(const int argc, const char** argv) {
 	 "MIC"
 #endif
 	 );
- #ifdef VISHAL
-  printf("Vishal's version\n");
- #elif defined NAIVE
+#ifdef VISHAL
+#ifdef VISHALPARALLEL
+  printf("Vishal's version (vectorization + parallelization)\n");
+#else
+  printf("Vishal's version (vectorization only)\n");
+#endif
+#elif defined NAIVE
   printf("Naive Dolittle\n");
- #else
+#else
   printf("Andrey's version\n");
- #endif
+#endif
 
   double rate = 0, dRate = 0; // Benchmarking data
   const int nTrials = 10;
