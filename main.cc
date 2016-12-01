@@ -6,9 +6,8 @@
 
 //#define TRACK
 
-//#define VISHAL
-//#define VISHALPARALLEL
-#define NAIVE
+#define VISHAL
+//#define NAIVE
 
 void LU_decomp(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -28,79 +27,21 @@ void LU_decomp(const int n, const int lda, double* const A) {
 }
 
 void LU_decomp_vishal(const int n, const int lda, double* const A) {
-    // LU decomposition without pivoting (Doolittle algorithm)
-    // In-place decomposition of form A=LU
-    // L is returned below main diagonal of A
-    // U is returned at and above main diagonal
-    __assume_aligned(A, 64);
-    const int num_threads = sysconf(_SC_NPROCESSORS_ONLN)/2; // No hyperthreading
-    omp_set_num_threads(num_threads);
-#ifdef VISHALPARALLEL
-#pragma omp parallel
-{
-#endif
-    const int cache_length = 8, strip_size = cache_length;
-    int num_peel = 0, block_size = 0;
-    for (int i = 1; i < n; i++) {
-        for (int k = 0; k < i; k++) {
-#ifdef TRACK
-            printf("i: %d; k: %d\n", i, k);
-            printf("i*lda + k: %d; k*lda + l: %d\n",i*lda + k, k*lda + k);
-            printf("Align of A[%d]: %ld\n", i*lda + k, (long)&A[i*lda + k]%64);
-            printf("Cache line: %d\n", (i*lda + k)/8);
-#endif
-#ifdef VISHALPARALLEL
-#pragma omp master
-{
-#endif
-            A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-#ifdef VISHALPARALLEL
-}
-#pragma omp flush
-#endif
-            num_peel = (n - k - 1)%cache_length; // Spread over core 0
-            #pragma omp simd
-            #pragma ivdep
-            for (int j = k + 1; j < k + 1 + num_peel; ++j) {
-#ifdef TRACK
-                printf("i: %d; k: %d; j: %d\n", i, k, j);
-                printf("i*lda + j: %d; i*lda + k: %d; k*lda + j: %d\n",i*lda + j, i*lda + k, k*lda + j);
-                printf("Align of A[%d]: %ld\n", i*lda + j, (long)&A[i*lda + j]%64);
-                printf("Cache line: %d\n", (i*lda + j)/8);
-#endif
-#ifdef VISHALPARALLEL
-#pragma omp master
-{
-#endif
-                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
-#ifdef VISHALPARALLEL
-}
-#pragma omp flush
-#endif
-            }
-
-            block_size = (n - k - 1 - num_peel)/num_threads;
-#ifdef VISHALPARALLEL
-#pragma omp for schedule(static, block_size)
-#endif
-            for (int jj = k + 1 + num_peel; jj < n; jj += strip_size) {
-                #pragma omp simd
-                #pragma ivdep
-                for (int j = jj, end = jj + strip_size; j < end; ++j) {
-#ifdef TRACK
-                    printf("i: %d; k: %d; jj: %d; j: %d\n", i, k, jj, j);
-                    printf("i*lda + j: %d; i*lda + k: %d; k*lda + j: %d\n",i*lda + j, i*lda + k, k*lda + j);
-                    printf("Align of A[%d]: %ld\n", i*lda + j, (long)&A[i*lda + j]%64);
-                    printf("Cache line: %d\n", (i*lda + j)/8);
-#endif
-	                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
-                }
-            }
-        }
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+for (int k = 0; k < n-1; k++) {
+  double const denom = 1.0/A[k*lda + k];
+#pragma omp parallel for
+  for (int i = k+1; i < n; i++) {
+      A[i*lda + k] = A[i*lda + k]*denom;
+#pragma simd
+#pragma ivdep
+      for (int j = k+1; j < n; j++)
+	A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
     }
-#ifdef VISHALPARALLEL
-}
-#endif
+  }
 }
 
 void LU_decomp_naive(const int n, const int lda, double* const A) {
