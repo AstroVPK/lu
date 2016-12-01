@@ -204,11 +204,7 @@ int main(const int argc, const char** argv) {
 #endif
 	 );
 #ifdef VISHAL
-#ifdef VISHALPARALLEL
   printf("Vishal's version (vectorization + parallelization)\n");
-#else
-  printf("Vishal's version (vectorization only)\n");
-#endif
 #elif defined NAIVE
   printf("Naive Dolittle\n");
 #else
