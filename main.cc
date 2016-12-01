@@ -31,16 +31,20 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
-for (int k = 0; k < n-1; k++) {
-  double const denom = 1.0/A[k*lda + k];
-#pragma omp parallel for
-  for (int i = k+1; i < n; i++) {
+  double denom = 0.0;
+  #pragma omp parallel
+  {
+  for (int k = 0; k < n-1; k++) {
+    denom = 1.0/A[k*lda + k];
+    #pragma omp for
+    for (int i = k+1; i < n; i++) {
       A[i*lda + k] = A[i*lda + k]*denom;
-#pragma simd
-#pragma ivdep
+      #pragma simd
+      #pragma ivdep
       for (int j = k+1; j < n; j++)
-	A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
+	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
     }
+  }
   }
 }
 
