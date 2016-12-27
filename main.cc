@@ -3,12 +3,24 @@
 #include <omp.h>
 #include <cassert>
 #include <unistd.h>
+#ifdef __INTEL_COMPILER
+    #include <mathimf.h>
+    #include <malloc.h>
+#else
+    #include <math.h>
+    #include <mm_malloc.h>
+#endif
+#define STR(x)   #x
+#define SHOW_DEFINE(x) printf("%s=%s\n", #x, STR(x));
 
 //#define TRACK
 
-#define VISHAL
+//#define VISHAL
 //#define NAIVE
 
+#if (COMPILER == 2)
+#pragma omp declare simd
+#endif
 void LU_decomp(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
@@ -18,14 +30,22 @@ void LU_decomp(const int n, const int lda, double* const A) {
   for (int i = 1; i < n; i++) {
     for (int k = 0; k < i; k++) {
       A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-#pragma simd
-#pragma ivdep
+#if (COMPILER == 2)
+      //#pragma GCC ivdep
+      #pragma omp simd
+#elif (COMPILER == 1)
+      #pragma simd
+      #pragma ivdep
+#endif
       for (int j = k+1; j < n; j++)
 	A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
     }
   }
 }
 
+#if (COMPILER == 2)
+#pragma omp declare simd
+#endif
 void LU_decomp_vishal(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
@@ -39,8 +59,13 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
     #pragma omp for
     for (int i = k+1; i < n; i++) {
       A[i*lda + k] = A[i*lda + k]*denom;
+#if (COMPILER == 2)
+      //#pragma GCC ivdep
+      #pragma omp simd
+#elif (COMPILER == 1)
       #pragma simd
       #pragma ivdep
+#endif
       for (int j = k+1; j < n; j++)
 	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
     }
@@ -48,12 +73,15 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
   }
 }
 
+#if (COMPILER == 2)
+#pragma omp declare simd
+#endif
 void LU_decomp_naive(const int n, const int lda, double* const A) {
     // LU decomposition without pivoting (Doolittle algorithm)
     // In-place decomposition of form A=LU
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
-    const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN)/2;
+    const int cache_line = 8, num_threads = sysconf(_SC_NPROCESSORS_ONLN)/2;
     omp_set_num_threads(num_threads);
     double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
     for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
@@ -94,12 +122,14 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
 void VerifyResult(const int n, const int lda, double* LU, double* refA) {
 
   // Verifying that A=LU
-  double A[n*lda];
-  double L[n*lda];
-  double U[n*lda];
-  A[:] = 0.0f;
-  L[:] = 0.0f;
-  U[:] = 0.0f;
+  double *A = (double *)_mm_malloc(n*lda*sizeof(double), 64);
+  double *L = (double *)_mm_malloc(n*lda*sizeof(double), 64);
+  double *U = (double *)_mm_malloc(n*lda*sizeof(double), 64);
+  for (int i = 0, len = n*lda; i < len; ++i) {
+    A[i] = 0.0f;
+    L[i] = 0.0f;
+    U[i] = 0.0f;
+    }
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < i; j++)
       L[i*lda + j] = LU[i*lda + j];
@@ -163,6 +193,10 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
   printf("deviation1=%e\n", deviation1);
 #endif
 
+_mm_free(A);
+_mm_free(L);
+_mm_free(U);
+
 }
 
 int main(const int argc, const char** argv) {
@@ -192,7 +226,9 @@ int main(const int argc, const char** argv) {
     }
     matrix[(n-1)*lda+n] = 0.0f; // Touch just in case
   }
-  referenceMatrix[0:n*lda] = ((double*)dataA)[0:n*lda];
+  for (int i = 0, len = n*lda; i < len; ++i) {
+      referenceMatrix[i] = ((double*)dataA)[i];
+  }
 
   // Perform benchmark
   printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n",
@@ -203,9 +239,9 @@ int main(const int argc, const char** argv) {
 	 "MIC"
 #endif
 	 );
-#ifdef VISHAL
+#if (AUTHOR == 2)
   printf("Vishal's version (vectorization + parallelization)\n");
-#elif defined NAIVE
+#elif (AUTHOR == 3)
   printf("Naive Dolittle\n");
 #else
   printf("Andrey's version\n");
@@ -220,9 +256,9 @@ int main(const int argc, const char** argv) {
     const double tStart = omp_get_wtime(); // Start timing
     for (int m = 0; m < nMatrices; m++) {
       double* matrixA = (double*)(&dataA[m*containerSize]);
-#ifdef VISHAL
+#if (AUTHOR == 2)
       LU_decomp_vishal(n, lda, matrixA);
-#elif defined NAIVE
+#elif (AUTHOR == 3)
       LU_decomp_naive(n, lda, matrixA);
 #else
       LU_decomp(n, lda, matrixA);

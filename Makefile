@@ -1,8 +1,21 @@
-CXX = icpc -Wall
-CXXFLAGS=-qopenmp
-CPUFLAGS = $(CXXFLAGS) -xhost -O3
-MICFLAGS = $(CXXFLAGS) -mmic
-OPTFLAGS = -qopt-report -qopt-report-file=$@.optrpt
+ifeq ($(AUTHOR),vishal)
+	AUTHORVAL = 2
+else ifeq ($(AUTHOR),naive)
+	AUTHORVAL = 3
+else ifeq ($(AUTHOR),andrey)
+	AUTHORVAL = 1
+endif
+ifeq ($(COMPILER),gcc)
+	CXX = g++ -Wall
+	CXXFLAGS=-fopenmp
+	CPUFLAGS = $(CXXFLAGS) -D COMPILER=2 -D AUTHOR=$(AUTHORVAL) -march=native -mtune=native -O3
+else
+	CXX = icpc -Wall
+	CXXFLAGS=-qopenmp
+	CPUFLAGS = $(CXXFLAGS) -D COMPILER=1 -D AUTHOR=$(AUTHORVAL) -xhost -O3
+	MICFLAGS = $(CXXFLAGS) -mmic
+	OPTFLAGS = -qopt-report -qopt-report-file=$@.optrpt
+endif
 
 CPUOBJECTS = main.o
 MICOBJECTS = main.oMIC
@@ -43,6 +56,7 @@ instructions:
 
 run-cpu: app-CPU
 	./app-CPU
+	rm -f $(CPUOBJECTS) $(MICOBJECTS) $(TARGET) *.optrpt
 
 run-mic: app-MIC
 	scp app-MIC mic0:~/
