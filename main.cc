@@ -6,7 +6,7 @@
 
 //#define TRACK
 
-#define VISHAL
+//#define VISHAL
 //#define NAIVE
 
 void LU_decomp(const int n, const int lda, double* const A) {
@@ -176,10 +176,10 @@ _mm_free(U);
 int main(const int argc, const char** argv) {
 
   // Problem size and other parameters
-  const int n=512;
-  const int lda=528;
+  const int n=2048;
+  const int lda=n+16;
   const int nMatrices=100;
-  const double HztoPerf = 1e-9*2.0/3.0*double(n*n*lda)*nMatrices;
+  const double HztoPerf = 1e-9*2.0/3.0*double(n*n*static_cast<double>(lda))*nMatrices;
 
   const size_t containerSize = sizeof(double)*n*lda+64;
   char* dataA = (char*) _mm_malloc(containerSize*nMatrices, 64);
