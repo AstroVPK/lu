@@ -1,4 +1,4 @@
-#include <cmath>
+#include <mathimf.h>
 #include <cstdio>
 #include <omp.h>
 #include <cassert>
@@ -31,6 +31,8 @@ void LU_decomp_vishal(const int n, const int lda, double* const A) {
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
+  const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN);
+  omp_set_num_threads(num_threads);
   double denom = 0.0;
   #pragma omp parallel
   {
@@ -53,7 +55,7 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
     // In-place decomposition of form A=LU
     // L is returned below main diagonal of A
     // U is returned at and above main diagonal
-    const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN)/2;
+    const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN);
     omp_set_num_threads(num_threads);
     double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
     for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
@@ -94,12 +96,14 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
 void VerifyResult(const int n, const int lda, double* LU, double* refA) {
 
   // Verifying that A=LU
-  double A[n*lda];
-  double L[n*lda];
-  double U[n*lda];
-  A[:] = 0.0f;
-  L[:] = 0.0f;
-  U[:] = 0.0f;
+  double *A = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
+  double *L = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
+  double *U = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
+  for (size_t i = 0, arrSize = n*lda; i < arrSize; ++i) {  
+	A[i] = 0.0f;
+  	L[i] = 0.0f;
+  	U[i] = 0.0f;
+  }
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < i; j++)
       L[i*lda + j] = LU[i*lda + j];
@@ -163,6 +167,10 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
   printf("deviation1=%e\n", deviation1);
 #endif
 
+_mm_free(A);
+_mm_free(L);
+_mm_free(U);
+
 }
 
 int main(const int argc, const char** argv) {
@@ -175,7 +183,7 @@ int main(const int argc, const char** argv) {
 
   const size_t containerSize = sizeof(double)*n*lda+64;
   char* dataA = (char*) _mm_malloc(containerSize*nMatrices, 64);
-  double referenceMatrix[n*lda];
+  double* referenceMatrix = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
 
   // Initialize matrices
   for (int m = 0; m < nMatrices; m++) {
@@ -250,5 +258,6 @@ int main(const int argc, const char** argv) {
   printf("* - warm-up, not included in average\n\n");
 
   _mm_free(dataA);
+  _mm_free(referenceMatrix);
 
 }
