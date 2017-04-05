@@ -8,6 +8,7 @@
 
 //#define VISHAL
 //#define NAIVE
+#define NAIVE_CLEAN
 
 void LU_decomp(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -92,6 +93,27 @@ void LU_decomp_naive(const int n, const int lda, double* const A) {
     _mm_free(holders);
     _mm_free(ATran);
 }
+
+void LU_decomp_naive_clean(const int n, const int lda, double* const A) {
+    // LU decomposition without pivoting (Doolittle algorithm)
+    // In-place decomposition of form A=LU
+    // L is returned below main diagonal of A
+    // U is returned at and above main diagonal
+    for (int i = 0; i < n; ++i) {
+        for (int j = i; j < n; ++j) {
+            for (int k = 0; k < i; ++k) {
+                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+            }
+        }
+        for (int j = i + 1; j < n; ++j) {
+            for (int k = 0; k < i; ++k) {
+                A[j*lda + i] -= A[j*lda + k]*A[k*lda + i];
+            }
+            A[j*lda + i] /= A[i*lda + i];
+        }
+    }
+}
+
 
 void VerifyResult(const int n, const int lda, double* LU, double* refA) {
 
@@ -215,6 +237,8 @@ int main(const int argc, const char** argv) {
   printf("Vishal's version (vectorization + parallelization)\n");
 #elif defined NAIVE
   printf("Naive Dolittle\n");
+#elif defined NAIVE_CLEAN
+  printf("Clean Naive Dolittle\n");
 #else
   printf("Andrey's version\n");
 #endif
@@ -232,6 +256,8 @@ int main(const int argc, const char** argv) {
       LU_decomp_vishal(n, lda, matrixA);
 #elif defined NAIVE
       LU_decomp_naive(n, lda, matrixA);
+#elif defined NAIVE_CLEAN
+    LU_decomp_naive_clean(n, lda, matrixA);
 #else
       LU_decomp(n, lda, matrixA);
 #endif
