@@ -4,19 +4,86 @@
 #include <cassert>
 #include <unistd.h>
 
-//#define TRACK
+#define DOLITTLE
+//#define IKJ
+//#define KIJ
 
-//#define VISHAL
-//#define NAIVE
-#define NAIVE_CLEAN
+void LU_decomp_dolittle_clean(const int n, const int lda, double* const A) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+  const int cache_line = 8, num_threads = omp_get_max_threads();
+  for (int i = 0; i < n; ++i) {
+    for (int j = i; j < n; ++j) {
+      for (int k = 0; k < i; ++k) {
+        A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+      }
+    }
+    for (int j = i + 1; j < n; ++j) {
+      for (int k = 0; k < i; ++k) {
+        A[j*lda + i] -= A[j*lda + k]*A[k*lda + i];
+      }
+      A[j*lda + i] /= A[i*lda + i];
+    }
+  }
+}
 
-void LU_decomp(const int n, const int lda, double* const A) {
+void LU_decomp_dolittle(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
 
+  const int cache_line = 8, num_threads = omp_get_max_threads();
+  double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
+#pragma omp parallel for
+  for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
+    for (int colCtr = 0; colCtr < n; ++colCtr) {
+      ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
+    }
+  }
+  double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
+#pragma omp parallel
+{
+  for (int i = 0; i < n; ++i) {
+#pragma omp for schedule(static)
+    for (int j = i; j < n; ++j) {
+      int tid = omp_get_thread_num();
+      holders[cache_line*tid] = A[i*lda + j];
+      for (int k = 0; k < i; ++k) {
+        holders[cache_line*tid] -= A[i*lda + k]*ATran[j*lda + k];
+        }
+        A[i*lda + j] = holders[cache_line*tid];
+        ATran[j*lda + i] = A[i*lda + j];
+    }
+#pragma omp for schedule(static)
+    for (int j = i + 1; j < n; ++j) {
+      int tid = omp_get_thread_num();
+      holders[cache_line*tid] = A[j*lda + i];
+        for (int k = 0; k < i; ++k) {
+          holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
+        }
+        A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
+        ATran[i*lda + j] = A[j*lda + i];
+    }
+  }
+}
+  _mm_free(holders);
+  _mm_free(ATran);
+}
+
+void LU_decomp_ikj(const int n, const int lda, double* const A) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  const int cache_line = 8, num_threads = omp_get_max_threads();
+#pragma omp parallel
+{
   for (int i = 1; i < n; i++) {
+#pragma omp for
     for (int k = 0; k < i; k++) {
       A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
 #pragma simd
@@ -26,94 +93,31 @@ void LU_decomp(const int n, const int lda, double* const A) {
     }
   }
 }
+}
 
-void LU_decomp_vishal(const int n, const int lda, double* const A) {
+void LU_decomp_kij(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
-  const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN);
-  omp_set_num_threads(num_threads);
-  double denom = 0.0;
-  #pragma omp parallel
-  {
+
+  const int cache_line = 8, num_threads = omp_get_max_threads();
+#pragma omp parallel
+{
   for (int k = 0; k < n-1; k++) {
-    denom = 1.0/A[k*lda + k];
-    #pragma omp for
+#pragma omp for
     for (int i = k+1; i < n; i++) {
-      A[i*lda + k] = A[i*lda + k]*denom;
+      A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
       #pragma simd
       #pragma ivdep
       for (int j = k+1; j < n; j++)
 	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
     }
   }
-  }
+}
 }
 
-void LU_decomp_naive(const int n, const int lda, double* const A) {
-    // LU decomposition without pivoting (Doolittle algorithm)
-    // In-place decomposition of form A=LU
-    // L is returned below main diagonal of A
-    // U is returned at and above main diagonal
-    const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN);
-    omp_set_num_threads(num_threads);
-    double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
-    for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
-        for (int colCtr = 0; colCtr < n; ++colCtr) {
-            ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
-        }
-    }
-    double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
-#pragma omp parallel
-{
-    for (int i = 0; i < n; ++i) {
-#pragma omp for schedule(static)
-        for (int j = i; j < n; ++j) {
-            int tid = omp_get_thread_num();
-            holders[cache_line*tid] = A[i*lda + j];
-            for (int k = 0; k < i; ++k) {
-                holders[cache_line*tid] -= A[i*lda + k]*ATran[j*lda + k];
-            }
-            A[i*lda + j] = holders[cache_line*tid];
-            ATran[j*lda + i] = A[i*lda + j];
-        }
-#pragma omp for schedule(static)
-        for (int j = i + 1; j < n; ++j) {
-            int tid = omp_get_thread_num();
-            holders[cache_line*tid] = A[j*lda + i];
-            for (int k = 0; k < i; ++k) {
-                holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
-            }
-            A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
-            ATran[i*lda + j] = A[j*lda + i];
-        }
-    }
-    }
-    _mm_free(holders);
-    _mm_free(ATran);
-}
-
-void LU_decomp_naive_clean(const int n, const int lda, double* const A) {
-    // LU decomposition without pivoting (Doolittle algorithm)
-    // In-place decomposition of form A=LU
-    // L is returned below main diagonal of A
-    // U is returned at and above main diagonal
-    for (int i = 0; i < n; ++i) {
-        for (int j = i; j < n; ++j) {
-            for (int k = 0; k < i; ++k) {
-                A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
-            }
-        }
-        for (int j = i + 1; j < n; ++j) {
-            for (int k = 0; k < i; ++k) {
-                A[j*lda + i] -= A[j*lda + k]*A[k*lda + i];
-            }
-            A[j*lda + i] /= A[i*lda + i];
-        }
-    }
-}
-
+/*****************************************************************************/
 
 void VerifyResult(const int n, const int lda, double* LU, double* refA) {
 
@@ -198,7 +202,7 @@ _mm_free(U);
 int main(const int argc, const char** argv) {
 
   // Problem size and other parameters
-  const int n=2048;
+  const int n=256;
   const int lda=n+16;
   const int nMatrices=100;
   const double HztoPerf = 1e-9*2.0/3.0*double(n*n*static_cast<double>(lda))*nMatrices;
@@ -233,14 +237,14 @@ int main(const int argc, const char** argv) {
 	 "MIC"
 #endif
 	 );
-#ifdef VISHAL
-  printf("Vishal's version (vectorization + parallelization)\n");
-#elif defined NAIVE
-  printf("Naive Dolittle\n");
-#elif defined NAIVE_CLEAN
-  printf("Clean Naive Dolittle\n");
+#ifdef IKJ
+  printf("ikj version (vectorization + parallelization)\n");
+#elif defined KIJ
+  printf("kij version (vectorization + parallelization)\n");
+#elif defined DOLITTLE
+  printf("Dolittle version (vectorization + parallelization)\n");
 #else
-  printf("Andrey's version\n");
+  printf("Clean Dolittle version\n");
 #endif
 
   double rate = 0, dRate = 0; // Benchmarking data
@@ -252,14 +256,14 @@ int main(const int argc, const char** argv) {
     const double tStart = omp_get_wtime(); // Start timing
     for (int m = 0; m < nMatrices; m++) {
       double* matrixA = (double*)(&dataA[m*containerSize]);
-#ifdef VISHAL
-      LU_decomp_vishal(n, lda, matrixA);
-#elif defined NAIVE
-      LU_decomp_naive(n, lda, matrixA);
-#elif defined NAIVE_CLEAN
-    LU_decomp_naive_clean(n, lda, matrixA);
+#ifdef IKJ
+      LU_decomp_ikj(n, lda, matrixA);
+#elif defined KIJ
+      LU_decomp_kij(n, lda, matrixA);
+#elif defined DOLITTLE
+      LU_decomp_dolittle(n, lda, matrixA);
 #else
-      LU_decomp(n, lda, matrixA);
+    LU_decomp_dolittle_clean(n, lda, matrixA);
 #endif
     }
     const double tEnd = omp_get_wtime(); // End timing
