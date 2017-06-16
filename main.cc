@@ -4,7 +4,9 @@
 #include <cassert>
 #include <unistd.h>
 
-#define DOLITTLE
+#include "advisor-annotate.h"
+
+//#define DOLITTLE
 //#define IKJ
 //#define KIJ
 
