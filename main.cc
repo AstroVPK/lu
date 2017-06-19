@@ -17,9 +17,9 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
   double *L = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
   double *U = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
   for (size_t i = 0, arrSize = n*lda; i < arrSize; ++i) {  
-	A[i] = 0.0f;
-  	L[i] = 0.0f;
-  	U[i] = 0.0f;
+    A[i] = 0.0f;
+      L[i] = 0.0f;
+      U[i] = 0.0f;
   }
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < i; j++)
@@ -31,7 +31,7 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
   for (int i = 0; i < n; i++)
     for (int j = 0; j < n; j++)
       for (int k = 0; k < n; k++)
-	A[i*lda + j] += L[i*lda + k]*U[k*lda + j];
+    A[i*lda + j] += L[i*lda + k]*U[k*lda + j];
 
   double deviation1 = 0.0;
   for (int i = 0; i < n; i++) {
@@ -121,33 +121,35 @@ int main(const int argc, const char** argv) {
 
   // Perform benchmark
   printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n",
-	 nMatrices, n, n,
+     nMatrices, n, n,
 #ifndef __MIC__
-	 "CPU"
+     "CPU"
 #else
-	 "MIC"
+     "MIC"
 #endif
-	 );
-#if defined IKJ
-#if defined OPT
-  printf("Dolittle Algorithm (ikj version - vectorized)\n");
-#else
-  printf("Dolittle Algorithm (ikj version - baseline)\n");
-#endif
-#elif defined KIJ
-#if defined VEC
-  printf("Dolittle Algorithm (kij version - vectorized)\n");
-#elif defined OPT
-  printf("Dolittle Algorithm (kij version - vectorized + parallelized)\n");
-#else
-  printf("Dolittle Algorithm (kij version - baseline)\n");
-#endif
-#else
-#if defined OPT
-  printf("Dolittle Algorithm (ijk version - parallelized)\n");
-#else
+     );
+#if defined IJK
   printf("Dolittle Algorithm (ijk version - baseline)\n");
-#endif
+#elif defined IJK_PAR
+  printf("Dolittle Algorithm (ijk version - parallelized)\n");
+#elif defined IJK_VEC
+  printf("Dolittle Algorithm (ijk version - vectorized)\n");
+#elif defined IJK_OPT
+  printf("Dolittle Algorithm (ijk version - vectorized + parallelized)\n");
+#elif defined IJK_SUPER
+  printf("Dolittle Algorithm (ijk version - vectorized + parallelized + transpose)\n");
+#elif defined IKJ
+  printf("Dolittle Algorithm (ikj version - baseline)\n");
+#elif defined IKJ_VEC
+  printf("Dolittle Algorithm (ikj version - vectorized)\n");
+#elif defined KIJ
+  printf("Dolittle Algorithm (kij version - baseline)\n");
+#elif defined KIJ_PAR
+  printf("Dolittle Algorithm (kij version - parallelized)\n");
+#elif defined KIJ_VEC
+  printf("Dolittle Algorithm (kij version - vectorized)\n");
+#elif defined KIJ_OPT
+  printf("Dolittle Algorithm (kij version - vectorized + parallelized)\n");
 #endif
 
   double rate = 0, dRate = 0; // Benchmarking data
@@ -159,26 +161,28 @@ int main(const int argc, const char** argv) {
     const double tStart = omp_get_wtime(); // Start timing
     for (int m = 0; m < nMatrices; m++) {
       double* matrixA = (double*)(&dataA[m*containerSize]);
-#if defined IKJ
-#if defined OPT
-      LU_decomp_ikj_vec(n, lda, matrixA);
-#else
-      LU_decomp_ikj(n, lda, matrixA);
-#endif
+#if defined IJK
+        LU_decomp_ikj(n, lda, matrixA);
+#elif defined IJK_PAR
+        LU_decomp_ikj_par(n, lda, matrixA);
+#elif defined IJK_VEC
+        LU_decomp_ikj_vec(n, lda, matrixA);
+#elif defined IJK_OPT
+        LU_decomp_ikj_opt(n, lda, matrixA);
+#elif defined IJK_OPT
+          LU_decomp_ikj_super(n, lda, matrixA);
+#elif defined IKJ
+        LU_decomp_ikj(n, lda, matrixA);
+#elif defined IKJ_VEC
+        LU_decomp_ikj_vec(n, lda, matrixA);
 #elif defined KIJ
-#if defined VEC
-      LU_decomp_kij_vec(n, lda, matrixA);
-#elif defined OPT
-      LU_decomp_kij_opt(n, lda, matrixA);
-#else
-      LU_decomp_kij(n, lda, matrixA);
-#endif
-#else
-#if defined OPT
-      LU_decomp_ijk_opt(n, lda, matrixA);
-#else
-      LU_decomp_ijk(n, lda, matrixA);
-#endif
+        LU_decomp_kij(n, lda, matrixA);
+#elif defined KIJ_VEC
+        LU_decomp_kij_vec(n, lda, matrixA);
+#elif defined KIJ_PAR
+        LU_decomp_kij_par(n, lda, matrixA);
+#elif defined KIJ_OPT
+        LU_decomp_kij_opt(n, lda, matrixA);
 #endif
     }
     const double tEnd = omp_get_wtime(); // End timing
@@ -191,14 +195,14 @@ int main(const int argc, const char** argv) {
     }
 
     printf("%5d %10.3e %8.2f %s\n",
-	   trial, (tEnd-tStart), HztoPerf/(tEnd-tStart), (trial<=skipTrials?"*":""));
+       trial, (tEnd-tStart), HztoPerf/(tEnd-tStart), (trial<=skipTrials?"*":""));
     fflush(stdout);
   }
   rate/=(double)(nTrials-skipTrials);
   dRate=sqrt(dRate/(double)(nTrials-skipTrials)-rate*rate);
   printf("-----------------------------------------------------\n");
   printf("\033[1m%s %4s \033[42m%10.2f +- %.2f GFLOP/s\033[0m\n",
-	 "Average performance:", "", rate, dRate);
+     "Average performance:", "", rate, dRate);
   printf("-----------------------------------------------------\n");
   printf("* - warm-up, not included in average\n\n");
 
