@@ -58,6 +58,50 @@ void LU_decomp_ijk_opt2(const int n, const int lda, double* const A) {
   double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
 #pragma omp parallel for
   for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
+#pragma omp simd
+#pragma omp ivdep
+    for (int colCtr = 0; colCtr < n; ++colCtr) {
+      ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
+    }
+  }
+  double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
+
+  for (int i = 0; i < n; ++i) {
+    for (int j = i; j < n; ++j) {
+      int tid = omp_get_thread_num();
+      holders[cache_line*tid] = A[i*lda + j];
+      for (int k = 0; k < i; ++k) {
+        holders[cache_line*tid] -= A[i*lda + k]*ATran[j*lda + k];
+        }
+        A[i*lda + j] = holders[cache_line*tid];
+        ATran[j*lda + i] = A[i*lda + j];
+    }
+    for (int j = i + 1; j < n; ++j) {
+      int tid = omp_get_thread_num();
+      holders[cache_line*tid] = A[j*lda + i];
+        for (int k = 0; k < i; ++k) {
+          holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
+        }
+        A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
+        ATran[i*lda + j] = A[j*lda + i];
+    }
+  }
+  _mm_free(holders);
+  _mm_free(ATran);
+}
+
+void LU_decomp_ijk_opt3(const int n, const int lda, double* const A) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  const int cache_line = 8, num_threads = omp_get_max_threads();
+  double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
+#pragma omp parallel for
+  for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
+#pragma omp simd
+#pragma omp ivdep
     for (int colCtr = 0; colCtr < n; ++colCtr) {
       ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
     }
