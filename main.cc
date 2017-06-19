@@ -6,148 +6,7 @@
 
 #include "advisor-annotate.h"
 
-//#define DOLITTLE
-//#define IKJ
-//#define KIJ
-
-void LU_decomp_dolittle(const int n, const int lda, double* const A) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-  const int cache_line = 8, num_threads = omp_get_max_threads();
-  for (int i = 0; i < n; ++i) {
-    for (int j = i; j < n; ++j) {
-      for (int k = 0; k < i; ++k) {
-        A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
-      }
-    }
-    for (int j = i + 1; j < n; ++j) {
-      for (int k = 0; k < i; ++k) {
-        A[j*lda + i] -= A[j*lda + k]*A[k*lda + i];
-      }
-      A[j*lda + i] /= A[i*lda + i];
-    }
-  }
-}
-
-void LU_decomp_dolittle_opt(const int n, const int lda, double* const A) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-
-  const int cache_line = 8, num_threads = omp_get_max_threads();
-  double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
-#pragma omp parallel for
-  for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
-    for (int colCtr = 0; colCtr < n; ++colCtr) {
-      ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
-    }
-  }
-  double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
-#pragma omp parallel
-{
-  for (int i = 0; i < n; ++i) {
-#pragma omp for schedule(static)
-    for (int j = i; j < n; ++j) {
-      int tid = omp_get_thread_num();
-      holders[cache_line*tid] = A[i*lda + j];
-      for (int k = 0; k < i; ++k) {
-        holders[cache_line*tid] -= A[i*lda + k]*ATran[j*lda + k];
-        }
-        A[i*lda + j] = holders[cache_line*tid];
-        ATran[j*lda + i] = A[i*lda + j];
-    }
-#pragma omp for schedule(static)
-    for (int j = i + 1; j < n; ++j) {
-      int tid = omp_get_thread_num();
-      holders[cache_line*tid] = A[j*lda + i];
-        for (int k = 0; k < i; ++k) {
-          holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
-        }
-        A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
-        ATran[i*lda + j] = A[j*lda + i];
-    }
-  }
-}
-  _mm_free(holders);
-  _mm_free(ATran);
-}
-
-void LU_decomp_ikj(const int n, const int lda, double* const A) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-
-  for (int i = 1; i < n; i++) {
-    for (int k = 0; k < i; k++) {
-      A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-      for (int j = k+1; j < n; j++)
-	A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
-    }
-  }
-}
-
-void LU_decomp_ikj_opt(const int n, const int lda, double* const A) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-
-  const int cache_line = 8, num_threads = omp_get_max_threads();
-#pragma omp parallel
-{
-  for (int i = 1; i < n; i++) {
-#pragma omp for
-    for (int k = 0; k < i; k++) {
-      A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-#pragma simd
-#pragma ivdep
-      for (int j = k+1; j < n; j++)
-	A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
-    }
-  }
-}
-}
-
-void LU_decomp_kij(const int n, const int lda, double* const A) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-
-  for (int k = 0; k < n-1; k++) {
-    for (int i = k+1; i < n; i++) {
-      A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-      for (int j = k+1; j < n; j++)
-	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
-    }
-  }
-}
-
-void LU_decomp_kij_opt(const int n, const int lda, double* const A) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-
-  const int cache_line = 8, num_threads = omp_get_max_threads();
-#pragma omp parallel
-{
-  for (int k = 0; k < n-1; k++) {
-#pragma omp for
-    for (int i = k+1; i < n; i++) {
-      A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
-      #pragma simd
-      #pragma ivdep
-      for (int j = k+1; j < n; j++)
-	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
-    }
-  }
-}
-}
+#include "lu.cc"
 
 /*****************************************************************************/
 
@@ -269,14 +128,26 @@ int main(const int argc, const char** argv) {
 	 "MIC"
 #endif
 	 );
-#ifdef IKJ
-  printf("ikj version (vectorization + parallelization)\n");
-#elif defined KIJ
-  printf("kij version (vectorization + parallelization)\n");
-#elif defined DOLITTLE
-  printf("Dolittle version (vectorization + parallelization)\n");
+#if defined IKJ
+#if defined OPT
+  printf("Dolittle Algorithm (ikj version - vectorized)\n");
 #else
-  printf("Clean Dolittle version\n");
+  printf("Dolittle Algorithm (ikj version - baseline)\n");
+#endif
+#elif defined KIJ
+#if defined VEC
+  printf("Dolittle Algorithm (kij version - vectorized)\n");
+#elif defined OPT
+  printf("Dolittle Algorithm (kij version - vectorized + parallelized)\n");
+#else
+  printf("Dolittle Algorithm (kij version - baseline)\n");
+#endif
+#else
+#if defined OPT
+  printf("Dolittle Algorithm (ijk version - parallelized)\n");
+#else
+  printf("Dolittle Algorithm (ijk version - baseline)\n");
+#endif
 #endif
 
   double rate = 0, dRate = 0; // Benchmarking data
@@ -288,14 +159,26 @@ int main(const int argc, const char** argv) {
     const double tStart = omp_get_wtime(); // Start timing
     for (int m = 0; m < nMatrices; m++) {
       double* matrixA = (double*)(&dataA[m*containerSize]);
-#ifdef IKJ
-      LU_decomp_ikj(n, lda, matrixA);
-#elif defined KIJ
-      LU_decomp_kij(n, lda, matrixA);
-#elif defined DOLITTLE
-      LU_decomp_dolittle(n, lda, matrixA);
+#if defined IKJ
+#if defined VEC
+      LU_decomp_ikj_vec(n, lda, matrixA);
 #else
-    LU_decomp_dolittle_clean(n, lda, matrixA);
+      LU_decomp_ikj(n, lda, matrixA);
+#endif
+#elif defined KIJ
+#if defined VEC
+      LU_decomp_kij_vec(n, lda, matrixA);
+#elif defined OPT
+      LU_decomp_kij_opt(n, lda, matrixA);
+#else
+      LU_decomp_kij(n, lda, matrixA);
+#endif
+#else
+#if defined OPT
+      LU_decomp_ijk_opt(n, lda, matrixA);
+#else
+      LU_decomp_ikj(n, lda, matrixA);
+#endif
 #endif
     }
     const double tEnd = omp_get_wtime(); // End timing
