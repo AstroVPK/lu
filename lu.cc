@@ -1,5 +1,5 @@
 //#define VEC
-#define OPT
+//#define OPT
 
 //#define IKJ
 //#define KIJ
@@ -9,7 +9,7 @@ void LU_decomp_ijk(const int n, const int lda, double* const A) {
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
-  const int cache_line = 8, num_threads = omp_get_max_threads();
+
   for (int i = 0; i < n; ++i) {
     for (int j = i; j < n; ++j) {
       for (int k = 0; k < i; ++k) {
@@ -26,6 +26,29 @@ void LU_decomp_ijk(const int n, const int lda, double* const A) {
 }
 
 void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  for (int i = 0; i < n; ++i) {
+#pragma omp parallel for
+    for (int j = i; j < n; ++j) {
+      for (int k = 0; k < i; ++k) {
+        A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+      }
+    }
+#pragma omp parallel for
+    for (int j = i + 1; j < n; ++j) {
+      for (int k = 0; k < i; ++k) {
+        A[j*lda + i] -= A[j*lda + k]*A[k*lda + i];
+      }
+      A[j*lda + i] /= A[i*lda + i];
+    }
+  }
+}
+
+void LU_decomp_ijk_opt2(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
