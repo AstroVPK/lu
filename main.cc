@@ -10,7 +10,7 @@
 //#define IKJ
 //#define KIJ
 
-void LU_decomp_dolittle_clean(const int n, const int lda, double* const A) {
+void LU_decomp_dolittle(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -31,7 +31,7 @@ void LU_decomp_dolittle_clean(const int n, const int lda, double* const A) {
   }
 }
 
-void LU_decomp_dolittle(const int n, const int lda, double* const A) {
+void LU_decomp_dolittle_opt(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -81,6 +81,21 @@ void LU_decomp_ikj(const int n, const int lda, double* const A) {
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
 
+  for (int i = 1; i < n; i++) {
+    for (int k = 0; k < i; k++) {
+      A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
+      for (int j = k+1; j < n; j++)
+	A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
+    }
+  }
+}
+
+void LU_decomp_ikj_opt(const int n, const int lda, double* const A) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
   const int cache_line = 8, num_threads = omp_get_max_threads();
 #pragma omp parallel
 {
@@ -98,6 +113,21 @@ void LU_decomp_ikj(const int n, const int lda, double* const A) {
 }
 
 void LU_decomp_kij(const int n, const int lda, double* const A) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  for (int k = 0; k < n-1; k++) {
+    for (int i = k+1; i < n; i++) {
+      A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
+      for (int j = k+1; j < n; j++)
+	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
+    }
+  }
+}
+
+void LU_decomp_kij_opt(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
