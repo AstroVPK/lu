@@ -57,8 +57,8 @@ void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
   double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
 #pragma omp parallel for
   for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
-#pragma omp simd
-#pragma omp ivdep
+#pragma simd
+#pragma ivdep
     for (int colCtr = 0; colCtr < n; ++colCtr) {
       ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
     }
@@ -99,8 +99,8 @@ void LU_decomp_ijk_opt3(const int n, const int lda, double* const A) {
   double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
 #pragma omp parallel for
   for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
-#pragma omp simd
-#pragma omp ivdep
+#pragma simd
+#pragma ivdep
     for (int colCtr = 0; colCtr < n; ++colCtr) {
       ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
     }
