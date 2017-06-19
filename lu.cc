@@ -1,5 +1,5 @@
 //#define VEC
-//#define OPT
+#define OPT
 
 //#define IKJ
 //#define KIJ
@@ -25,7 +25,7 @@ void LU_decomp_ijk(const int n, const int lda, double* const A) {
   }
 }
 
-void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
+void LU_decomp_ijk_opt2(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -47,8 +47,7 @@ void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
     }
   }
 }
-
-void LU_decomp_ijk_opt2(const int n, const int lda, double* const A) {
+void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
