@@ -160,7 +160,7 @@ int main(const int argc, const char** argv) {
     for (int m = 0; m < nMatrices; m++) {
       double* matrixA = (double*)(&dataA[m*containerSize]);
 #if defined IKJ
-#if defined VEC
+#if defined OPT
       LU_decomp_ikj_vec(n, lda, matrixA);
 #else
       LU_decomp_ikj(n, lda, matrixA);
@@ -177,7 +177,7 @@ int main(const int argc, const char** argv) {
 #if defined OPT
       LU_decomp_ijk_opt(n, lda, matrixA);
 #else
-      LU_decomp_ikj(n, lda, matrixA);
+      LU_decomp_ijk(n, lda, matrixA);
 #endif
 #endif
     }

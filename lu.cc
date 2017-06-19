@@ -1,5 +1,5 @@
 //#define VEC
-//#define OPT
+#define OPT
 
 //#define IKJ
 //#define KIJ
