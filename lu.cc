@@ -67,6 +67,8 @@ void LU_decomp_ijk_vec(const int n, const int lda, double* const A) {
     for (int j = i; j < n; ++j) {
       int tid = omp_get_thread_num();
       holders[cache_line*tid] = A[i*lda + j];
+#pragma simd
+#pragma ivdep
       for (int k = 0; k < i; ++k) {
         holders[cache_line*tid] -= A[i*lda + k]*A[k*lda + j];
         }
@@ -75,6 +77,8 @@ void LU_decomp_ijk_vec(const int n, const int lda, double* const A) {
     for (int j = i + 1; j < n; ++j) {
       int tid = omp_get_thread_num();
       holders[cache_line*tid] = A[j*lda + i];
+#pragma simd
+#pragma ivdep
         for (int k = 0; k < i; ++k) {
           holders[cache_line*tid] -= A[j*lda + k]*A[k*lda + i];
         }
@@ -100,6 +104,8 @@ void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
     for (int j = i; j < n; ++j) {
       int tid = omp_get_thread_num();
       holders[cache_line*tid] = A[i*lda + j];
+#pragma simd
+#pragma ivdep
       for (int k = 0; k < i; ++k) {
         holders[cache_line*tid] -= A[i*lda + k]*A[k*lda + j];
         }
@@ -109,6 +115,8 @@ void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
     for (int j = i + 1; j < n; ++j) {
       int tid = omp_get_thread_num();
       holders[cache_line*tid] = A[j*lda + i];
+#pragma simd
+#pragma ivdep
         for (int k = 0; k < i; ++k) {
           holders[cache_line*tid] -= A[j*lda + k]*A[k*lda + i];
         }
@@ -124,8 +132,8 @@ void LU_decomp_ijk_super(const int n, const int lda, double* const A) {
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
-
-  const int cache_line = 8, num_threads = omp_get_max_threads();
+  const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN);
+  omp_set_num_threads(num_threads);
   double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
 #pragma omp parallel for
   for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
@@ -144,26 +152,30 @@ void LU_decomp_ijk_super(const int n, const int lda, double* const A) {
     for (int j = i; j < n; ++j) {
       int tid = omp_get_thread_num();
       holders[cache_line*tid] = A[i*lda + j];
+#pragma simd
+#pragma ivdep
       for (int k = 0; k < i; ++k) {
         holders[cache_line*tid] -= A[i*lda + k]*ATran[j*lda + k];
-        }
-        A[i*lda + j] = holders[cache_line*tid];
-        ATran[j*lda + i] = A[i*lda + j];
+      }
+      A[i*lda + j] = holders[cache_line*tid];
+      ATran[j*lda + i] = A[i*lda + j];
     }
 #pragma omp for schedule(static)
     for (int j = i + 1; j < n; ++j) {
       int tid = omp_get_thread_num();
       holders[cache_line*tid] = A[j*lda + i];
-        for (int k = 0; k < i; ++k) {
-          holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
-        }
-        A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
-        ATran[i*lda + j] = A[j*lda + i];
+#pragma simd
+#pragma ivdep
+      for (int k = 0; k < i; ++k) {
+        holders[cache_line*tid] -= A[j*lda + k]*ATran[i*lda + k];
+      }
+      A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
+      ATran[i*lda + j] = A[j*lda + i];
     }
   }
 }
-  _mm_free(holders);
-  _mm_free(ATran);
+    _mm_free(holders);
+    _mm_free(ATran);
 }
 
 void LU_decomp_ikj(const int n, const int lda, double* const A) {

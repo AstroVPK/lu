@@ -162,15 +162,15 @@ int main(const int argc, const char** argv) {
     for (int m = 0; m < nMatrices; m++) {
       double* matrixA = (double*)(&dataA[m*containerSize]);
 #if defined IJK
-        LU_decomp_ikj(n, lda, matrixA);
+        LU_decomp_ijk(n, lda, matrixA);
 #elif defined IJK_PAR
-        LU_decomp_ikj_par(n, lda, matrixA);
+        LU_decomp_ijk_par(n, lda, matrixA);
 #elif defined IJK_VEC
-        LU_decomp_ikj_vec(n, lda, matrixA);
+        LU_decomp_ijk_vec(n, lda, matrixA);
 #elif defined IJK_OPT
-        LU_decomp_ikj_opt(n, lda, matrixA);
-#elif defined IJK_OPT
-          LU_decomp_ikj_super(n, lda, matrixA);
+        LU_decomp_ijk_opt(n, lda, matrixA);
+#elif defined IJK_SUPER
+        LU_decomp_ijk_super(n, lda, matrixA);
 #elif defined IKJ
         LU_decomp_ikj(n, lda, matrixA);
 #elif defined IKJ_VEC

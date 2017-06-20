@@ -1,4 +1,4 @@
-CXX = icpc -Wall -g -I/opt/intel/advisor_xe/include
+CXX = icpc -Wall -g -I/opt/intel/advisor/include
 CXXFLAGS=-qopenmp
 CPUFLAGS = $(CXXFLAGS) -xhost -O3
 MICFLAGS = $(CXXFLAGS) -mmic
