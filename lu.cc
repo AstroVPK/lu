@@ -1,4 +1,7 @@
-//#define IJK
+#define PROBLEM_SIZE 64
+#define NUM_MATRICES 100
+
+#define IJK
 //#define IJK_PAR
 //#define IJK_VEC
 //#define IJK_OPT
@@ -188,7 +191,7 @@ void LU_decomp_ikj(const int n, const int lda, double* const A) {
     for (int k = 0; k < i; k++) {
       A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
 #pragma novector
-      for (int j = k+1; j < n; j++) 
+      for (int j = k+1; j < n; j++)
         A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
     }
   }
@@ -205,7 +208,7 @@ void LU_decomp_ikj_vec(const int n, const int lda, double* const A) {
       A[i*lda + k] = A[i*lda + k]/A[k*lda + k];
 #pragma simd
 #pragma ivdep
-	  for (int j = k+1; j < n; j++) 
+	  for (int j = k+1; j < n; j++)
         A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
     }
   }
