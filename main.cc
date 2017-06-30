@@ -14,7 +14,7 @@
 #define NUM_MATRICES 100
 #define NUM_TRIALS 10
 
-//#define IJK
+#define IJK
 //#define IJK_PAR
 //#define IJK_VEC
 //#define IJK_OPT
@@ -24,7 +24,7 @@
 //#define KIJ
 //#define KIJ_VEC
 //#define KIJ_PAR
-#define KIJ_OPT
+//#define KIJ_OPT
 
 void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -98,18 +98,18 @@ void LU_decomp_ijk_vec(const int n, const int lda, double* const A, double *scra
 #pragma ivdep
       for (int k = 0; k < i; ++k) {
         holders[cache_line*tid] -= A[i*lda + k]*A[k*lda + j];
-        }
-        A[i*lda + j] = holders[cache_line*tid];
+      }
+      A[i*lda + j] = holders[cache_line*tid];
     }
     for (int j = i + 1; j < n; ++j) {
       int tid = omp_get_thread_num();
       holders[cache_line*tid] = A[j*lda + i];
 #pragma simd
 #pragma ivdep
-        for (int k = 0; k < i; ++k) {
-          holders[cache_line*tid] -= A[j*lda + k]*A[k*lda + i];
-        }
-        A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
+      for (int k = 0; k < i; ++k) {
+        holders[cache_line*tid] -= A[j*lda + k]*A[k*lda + i];
+      }
+      A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
     }
   }
   _mm_free(holders);
@@ -140,8 +140,8 @@ void LU_decomp_ijk_opt(const int n, const int lda, double* const A, double *scra
 #pragma ivdep
       for (int k = 0; k < i; ++k) {
         holders[cache_line*tid] -= A[i*lda + k]*A[k*lda + j];
-        }
-        A[i*lda + j] = holders[cache_line*tid];
+      }
+      A[i*lda + j] = holders[cache_line*tid];
     }
 #pragma omp for schedule(static)
     for (int j = i + 1; j < n; ++j) {
@@ -149,10 +149,10 @@ void LU_decomp_ijk_opt(const int n, const int lda, double* const A, double *scra
       holders[cache_line*tid] = A[j*lda + i];
 #pragma simd
 #pragma ivdep
-        for (int k = 0; k < i; ++k) {
-          holders[cache_line*tid] -= A[j*lda + k]*A[k*lda + i];
-        }
-        A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
+      for (int k = 0; k < i; ++k) {
+        holders[cache_line*tid] -= A[j*lda + k]*A[k*lda + i];
+      }
+      A[j*lda + i] = holders[cache_line*tid]/A[i*lda + i];
     }
   }
 }
@@ -258,7 +258,7 @@ void LU_decomp_ikj_vec(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij_old(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -278,7 +278,7 @@ void LU_decomp_kij_old(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_new(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -316,7 +316,7 @@ void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch)
   }
 }
 
-void LU_decomp_kij_vec_old(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -337,7 +337,7 @@ void LU_decomp_kij_vec_old(const int n, const int lda, double* const A, double *
   }
 }
 
-void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_vec_new(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -379,7 +379,7 @@ void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij_par_old(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_par(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -404,7 +404,7 @@ void LU_decomp_kij_par_old(const int n, const int lda, double* const A, double *
 }
 }
 
-void LU_decomp_kij_par(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_par_new(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -449,7 +449,7 @@ void LU_decomp_kij_par(const int n, const int lda, double* const A, double *scra
 }
 }
 
-void LU_decomp_kij_opt_old(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_opt(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -474,7 +474,7 @@ void LU_decomp_kij_opt_old(const int n, const int lda, double* const A, double *
 }
 }
 
-void LU_decomp_kij_opt(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_opt_new(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
