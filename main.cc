@@ -13,9 +13,9 @@
 #define PROBLEM_SIZE 128
 #define NUM_MATRICES 100
 #define NUM_TRIALS 10
-#define TILE_SIZE 32
+#define TILE_SIZE 8
 
-#define IJK
+//#define IJK
 //#define IJK_PAR
 //#define IJK_VEC
 //#define IJK_OPT
@@ -259,7 +259,7 @@ void LU_decomp_ikj_vec(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij_old(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -279,7 +279,7 @@ void LU_decomp_kij_old(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_tiled(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -338,7 +338,7 @@ void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij_new(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_vec_tiled(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -405,7 +405,7 @@ void LU_decomp_kij_par(const int n, const int lda, double* const A, double *scra
 }
 }
 
-void LU_decomp_kij_par_new(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_par_tiled(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -475,7 +475,7 @@ void LU_decomp_kij_opt(const int n, const int lda, double* const A, double *scra
 }
 }
 
-void LU_decomp_kij_opt_new(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_opt_tiled(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
