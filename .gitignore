@@ -9,3 +9,10 @@ naive/
 main.o
 pin.log
 *.swp
+*.o.optrpt
+.sconf_temp
+*.log
+*.o
+*.optrpt
+.sconsign.dblite
+luDecomp
