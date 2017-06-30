@@ -4,6 +4,9 @@
 #include <omp.h>
 #include <cassert>
 #include <unistd.h>
+#ifdef __HBM__
+#include <hbwmalloc.h>
+#endif
 
 #include "advisor-annotate.h"
 
@@ -23,11 +26,14 @@
 //#define KIJ_PAR
 #define KIJ_OPT
 
-void LU_decomp_ijk(const int n, const int lda, double* const A) {
+void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
 
   for (int i = 0; i < n; ++i) {
     for (int j = i; j < n; ++j) {
@@ -44,11 +50,14 @@ void LU_decomp_ijk(const int n, const int lda, double* const A) {
   }
 }
 
-void LU_decomp_ijk_par(const int n, const int lda, double* const A) {
+void LU_decomp_ijk_par(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
 
   for (int i = 0; i < n; ++i) {
 #pragma omp parallel for
@@ -67,14 +76,19 @@ void LU_decomp_ijk_par(const int n, const int lda, double* const A) {
   }
 }
 
-void LU_decomp_ijk_vec(const int n, const int lda, double* const A) {
+void LU_decomp_ijk_vec(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
 
   const int cache_line = 8, num_threads = omp_get_max_threads();
-  double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
+  double *holders = &scratch[0];
+
+  __assume_aligned(holders, 64);
 
   for (int i = 0; i < n; ++i) {
     for (int j = i; j < n; ++j) {
@@ -101,14 +115,19 @@ void LU_decomp_ijk_vec(const int n, const int lda, double* const A) {
   _mm_free(holders);
 }
 
-void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
+void LU_decomp_ijk_opt(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
 
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
   const int cache_line = 8, num_threads = omp_get_max_threads();
-  double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
+  double * holders = &scratch[0];
+
+  __assume_aligned(holders, 64);
 
 #pragma omp parallel
 {
@@ -140,14 +159,24 @@ void LU_decomp_ijk_opt(const int n, const int lda, double* const A) {
   _mm_free(holders);
 }
 
-void LU_decomp_ijk_super(const int n, const int lda, double* const A) {
+void LU_decomp_ijk_super(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
   const int cache_line = 8, num_threads =  sysconf(_SC_NPROCESSORS_ONLN);
   omp_set_num_threads(num_threads);
-  double * ATran = (double*)_mm_malloc(sizeof(double)*n*lda + 64, 64);
+
+  double *holders = &scratch[0];
+  double *ATran = &scratch[num_threads*cache_line];
+
+  __assume_aligned(holders, 64);
+  __assume_aligned(ATran, 64);
+
 #pragma omp parallel for
   for (int rowCtr = 0; rowCtr < n; ++rowCtr) {
 #pragma simd
@@ -156,7 +185,6 @@ void LU_decomp_ijk_super(const int n, const int lda, double* const A) {
       ATran[colCtr*lda + rowCtr] = A[rowCtr*lda + colCtr];
     }
   }
-  double * holders = (double*)_mm_malloc(sizeof(double)*num_threads*cache_line, 64);
 
 #pragma omp parallel
 {
@@ -191,11 +219,14 @@ void LU_decomp_ijk_super(const int n, const int lda, double* const A) {
     _mm_free(ATran);
 }
 
-void LU_decomp_ikj(const int n, const int lda, double* const A) {
+void LU_decomp_ikj(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
 
   for (int i = 1; i < n; i++) {
     for (int k = 0; k < i; k++) {
@@ -207,11 +238,14 @@ void LU_decomp_ikj(const int n, const int lda, double* const A) {
   }
 }
 
-void LU_decomp_ikj_vec(const int n, const int lda, double* const A) {
+void LU_decomp_ikj_vec(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
 
   for (int i = 1; i < n; i++) {
     for (int k = 0; k < i; k++) {
@@ -224,79 +258,265 @@ void LU_decomp_ikj_vec(const int n, const int lda, double* const A) {
   }
 }
 
-void LU_decomp_kij(const int n, const int lda, double* const A) {
+void LU_decomp_kij_old(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
 
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
   for (int k = 0; k < n-1; k++) {
     const double recAkk = 1.0/A[k*lda + k];
-    for (int i = k+1; i < n; i++) {
+    for (int i = k + 1; i < n; i++) {
       A[i*lda + k] = A[i*lda + k]*recAkk;
 #pragma novector
-      for (int j = k+1; j < n; j++)
+      for (int j = k + 1; j < n; j++)
         A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
     }
   }
 }
 
-void LU_decomp_kij_vec(const int n, const int lda, double* const A) {
+void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
 
-  for (int k = 0; k < n-1; k++) {
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+  const int tile = 8;
+
+  for (size_t i = 0; i < n; ++i) {
+#pragma novector
+    for (size_t j = 0; j < n; ++j) {
+      scratch[i*lda + j] = 0.0;
+    }
+    scratch[i*lda + i] = 1.0;
+  }
+
+  for (size_t k = 0; k < n-1; k++) {
+    const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
-    for (int i = k+1; i < n; i++) {
-      A[i*lda + k] = A[i*lda + k]*recAkk;
-      #pragma simd
-      #pragma ivdep
-      for (int j = k+1; j < n; j++)
-	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
+    for (size_t i = k + 1; i < n; i++) {
+      scratch[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma novector
+      for (size_t j = jmin; j < n; j++) {
+	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
+      }
+    }
+  }
+  for (size_t i = 0; i < n; ++i) {
+#pragma novector
+    for (size_t j = 0; j < i; ++j) {
+      A[i*lda + j] = scratch[i*lda + j];
     }
   }
 }
 
-void LU_decomp_kij_par(const int n, const int lda, double* const A) {
+void LU_decomp_kij_vec_old(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
 
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+  for (size_t k = 0; k < n-1; k++) {
+    const double recAkk = 1.0/A[k*lda + k];
+    for (size_t i = k + 1; i < n; i++) {
+      A[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma simd
+#pragma ivdep
+      for (size_t j = k + 1; j < n; j++)
+	    A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+    }
+  }
+}
+
+void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scratch) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+  const int tile = 8;
+
+  for (int i = 0; i < n; ++i) {
+#pragma simd
+#pragma ivdep
+    for (int j = 0; j < n; ++j) {
+      scratch[i*lda + j] = 0.0;
+    }
+    scratch[i*lda + i] = 1.0;
+  }
+
+  for (size_t k = 0; k < n-1; k++) {
+    const size_t jmin = k - k%tile;
+    const double recAkk = 1.0/A[k*lda + k];
+    for (size_t i = k + 1; i < n; i++) {
+      scratch[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma simd
+#pragma ivdep
+      for (size_t j = jmin; j < n; j++) {
+	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
+      }
+    }
+  }
+
+  for (size_t i = 0; i < n; ++i) {
+#pragma simd
+#pragma ivdep
+    for (size_t j = 0; j < i; ++j) {
+      A[i*lda + j] = scratch[i*lda + j];
+    }
+  }
+}
+
+void LU_decomp_kij_par_old(const int n, const int lda, double* const A, double *scratch) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
 #pragma omp parallel
 {
-  for (int k = 0; k < n-1; k++) {
+  for (size_t k = 0; k < n - 1; ++k) {
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
-    for (int i = k+1; i < n; i++) {
+    for (size_t i = k + 1; i < n; ++i) {
       A[i*lda + k] = A[i*lda + k]*recAkk;
 #pragma novector
-      for (int j = k+1; j < n; j++)
+      for (size_t j = k + 1; j < n; ++j) {
         A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
+      }
     }
   }
 }
 }
 
-void LU_decomp_kij_opt(const int n, const int lda, double* const A) {
+void LU_decomp_kij_par(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
   // U is returned at and above main diagonal
 
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+  const int tile = 8;
+
 #pragma omp parallel
 {
-  for (int k = 0; k < n-1; k++) {
+#pragma omp for
+  for (size_t i = 0; i < n; ++i) {
+#pragma novector
+    for (size_t j = 0; j < n; ++j) {
+      scratch[i*lda + j] = 0.0;
+    }
+    scratch[i*lda + i] = 1.0;
+  }
+
+  for (size_t k = 0; k < n-1; k++) {
+    const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
-    for (int i = k+1; i < n; i++) {
+    for (size_t i = k + 1; i < n; i++) {
+      scratch[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma novector
+      for (size_t j = jmin; j < n; j++) {
+	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
+      }
+    }
+  }
+
+#pragma omp for
+  for (size_t i = 0; i < n; ++i) {
+#pragma novector
+    for (size_t j = 0; j < i; ++j) {
+      A[i*lda + j] = scratch[i*lda + j];
+    }
+  }
+}
+}
+
+void LU_decomp_kij_opt_old(const int n, const int lda, double* const A, double *scratch) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+#pragma omp parallel
+{
+  for (size_t k = 0; k < n - 1; ++k) {
+    const double recAkk = 1.0/A[k*lda + k];
+#pragma omp for
+    for (size_t i = k + 1; i < n; ++i) {
       A[i*lda + k] = A[i*lda + k]*recAkk;
-      #pragma simd
-      #pragma ivdep
-      for (int j = k+1; j < n; j++)
-	    A[i*lda + j] -= A[i*lda+k]*A[k*lda + j];
+#pragma simd
+#pragma ivdep
+      for (size_t j = k + 1; j < n; ++j)
+	    A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
+    }
+  }
+}
+}
+
+void LU_decomp_kij_opt(const int n, const int lda, double* const A, double *scratch) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+  const int tile = 8;
+
+#pragma omp parallel
+{
+#pragma omp for
+  for (size_t i = 0; i < n; ++i) {
+#pragma ivdep
+#pragma simd
+    for (size_t j = 0; j < n; ++j) {
+      scratch[i*lda + j] = 0.0;
+    }
+    scratch[i*lda + i] = 1.0;
+  }
+
+  for (size_t k = 0; k < n-1; k++) {
+    const size_t jmin = k - k%tile;
+    const double recAkk = 1.0/A[k*lda + k];
+#pragma omp for
+    for (size_t i = k + 1; i < n; i++) {
+      scratch[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma ivdep
+#pragma simd
+      for (size_t j = jmin; j < n; j++) {
+	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
+      }
+    }
+  }
+
+#pragma omp for
+  for (size_t i = 0; i < n; ++i) {
+#pragma ivdep
+#pragma simd
+    for (size_t j = 0; j < i; ++j) {
+      A[i*lda + j] = scratch[i*lda + j];
     }
   }
 }
@@ -394,7 +614,16 @@ int main(const int argc, const char** argv) {
   const double HztoPerf = 1e-9*2.0/3.0*double(n*n*static_cast<double>(lda))*nMatrices;
 
   const size_t containerSize = sizeof(double)*n*lda+64;
-  char* dataA = (char*) _mm_malloc(containerSize*nMatrices, 64);
+  char* dataA;
+  double* scratch;
+  const int cache_line = 8, num_threads = omp_get_max_threads();
+#ifdef __HBM__
+  hbw_posix_memalign((void**) &dataA, 4096, containerSize*nMatrices);
+  hbw_posix_memalign((void**) &scratch, 4096, sizeof(double)*(num_threads*cache_line + n*lda) + 64);
+#else
+  dataA = (char*)_mm_malloc(containerSize*nMatrices, 64);
+  scratch = (double*)_mm_malloc(sizeof(double)*(num_threads*cache_line + n*lda) + 64, 64);
+#endif
   double* referenceMatrix = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
 
   // Initialize matrices
@@ -413,6 +642,10 @@ int main(const int argc, const char** argv) {
     matrix[(n-1)*lda+n] = 0.0f; // Touch just in case
   }
   referenceMatrix[0:n*lda] = ((double*)dataA)[0:n*lda];
+#pragma omp parallel for
+  for (int i = 0; i < num_threads*cache_line + n*lda + 8; ++i) {
+    scratch[i] = 0.0;
+  }
 
   // Perform benchmark
   printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n",
@@ -457,27 +690,27 @@ int main(const int argc, const char** argv) {
     for (int m = 0; m < nMatrices; m++) {
       double* matrixA = (double*)(&dataA[m*containerSize]);
 #if defined IJK
-        LU_decomp_ijk(n, lda, matrixA);
+        LU_decomp_ijk(n, lda, matrixA, scratch);
 #elif defined IJK_PAR
-        LU_decomp_ijk_par(n, lda, matrixA);
+        LU_decomp_ijk_par(n, lda, matrixA, scratch);
 #elif defined IJK_VEC
-        LU_decomp_ijk_vec(n, lda, matrixA);
+        LU_decomp_ijk_vec(n, lda, matrixA, scratch);
 #elif defined IJK_OPT
-        LU_decomp_ijk_opt(n, lda, matrixA);
+        LU_decomp_ijk_opt(n, lda, matrixA, scratch);
 #elif defined IJK_SUPER
-        LU_decomp_ijk_super(n, lda, matrixA);
+        LU_decomp_ijk_super(n, lda, matrixA, scratch);
 #elif defined IKJ
-        LU_decomp_ikj(n, lda, matrixA);
+        LU_decomp_ikj(n, lda, matrixA, scratch);
 #elif defined IKJ_VEC
-        LU_decomp_ikj_vec(n, lda, matrixA);
+        LU_decomp_ikj_vec(n, lda, matrixA, scratch);
 #elif defined KIJ
-        LU_decomp_kij(n, lda, matrixA);
+        LU_decomp_kij(n, lda, matrixA, scratch);
 #elif defined KIJ_VEC
-        LU_decomp_kij_vec(n, lda, matrixA);
+        LU_decomp_kij_vec(n, lda, matrixA, scratch);
 #elif defined KIJ_PAR
-        LU_decomp_kij_par(n, lda, matrixA);
+        LU_decomp_kij_par(n, lda, matrixA, scratch);
 #elif defined KIJ_OPT
-        LU_decomp_kij_opt(n, lda, matrixA);
+        LU_decomp_kij_opt(n, lda, matrixA, scratch);
 #endif
     }
     const double tEnd = omp_get_wtime(); // End timing
@@ -501,7 +734,12 @@ int main(const int argc, const char** argv) {
   printf("-----------------------------------------------------\n");
   printf("* - warm-up, not included in average\n\n");
 
+#ifdef __HBM__
+  hbw_free((void*)dataA);
+  hbw_free((void*)scratch);
+#else
   _mm_free(dataA);
+  _mm_free(scratch);
+#endif
   _mm_free(referenceMatrix);
-
 }
