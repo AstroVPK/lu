@@ -1,3 +1,4 @@
+#include <cmath>
 #include <mathimf.h>
 #include <cstdio>
 #include <omp.h>
