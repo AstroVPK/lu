@@ -310,7 +310,7 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
   double *A = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
   double *L = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
   double *U = static_cast<double*>(_mm_malloc(n*lda*sizeof(double), 64));
-  for (size_t i = 0, arrSize = n*lda; i < arrSize; ++i) {  
+  for (size_t i = 0, arrSize = n*lda; i < arrSize; ++i) {
     A[i] = 0.0f;
       L[i] = 0.0f;
       U[i] = 0.0f;
@@ -334,7 +334,7 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
     }
   }
   deviation1 /= (double)(n*lda);
-  if (isnan(deviation1) || (deviation1 > 1.0e-2)) {
+  if (std::isnan(deviation1) || (deviation1 > 1.0e-2)) {
     printf("ERROR: LU is not equal to A (deviation1=%e)!\n", deviation1);
     //    exit(1);
   }
