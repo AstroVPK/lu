@@ -13,6 +13,7 @@
 #define PROBLEM_SIZE 256
 #define NUM_MATRICES 100
 #define NUM_TRIALS 10
+#define TILE_SIZE 8
 
 #define IJK
 //#define IJK_PAR
@@ -287,7 +288,7 @@ void LU_decomp_kij_new(const int n, const int lda, double* const A, double *scra
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  const int tile = 8;
+  const int tile = TILE_SIZE;
 
   for (size_t i = 0; i < n; ++i) {
 #pragma novector
@@ -346,7 +347,7 @@ void LU_decomp_kij_vec_new(const int n, const int lda, double* const A, double *
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  const int tile = 8;
+  const int tile = TILE_SIZE;
 
   for (int i = 0; i < n; ++i) {
 #pragma simd
@@ -413,7 +414,7 @@ void LU_decomp_kij_par_new(const int n, const int lda, double* const A, double *
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  const int tile = 8;
+  const int tile = TILE_SIZE;
 
 #pragma omp parallel
 {
@@ -483,7 +484,7 @@ void LU_decomp_kij_opt_new(const int n, const int lda, double* const A, double *
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  const int tile = 8;
+  const int tile = TILE_SIZE;
 
 #pragma omp parallel
 {
