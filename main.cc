@@ -10,10 +10,10 @@
 
 #include "advisor-annotate.h"
 
-#define PROBLEM_SIZE 256
+#define PROBLEM_SIZE 128
 #define NUM_MATRICES 100
 #define NUM_TRIALS 10
-#define TILE_SIZE 8
+#define TILE_SIZE 32
 
 #define IJK
 //#define IJK_PAR
@@ -259,7 +259,7 @@ void LU_decomp_ikj_vec(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_old(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -279,7 +279,7 @@ void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch)
   }
 }
 
-void LU_decomp_kij_new(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -358,7 +358,7 @@ void LU_decomp_kij_vec_new(const int n, const int lda, double* const A, double *
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n-1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
@@ -673,10 +673,10 @@ int main(const int argc, const char** argv) {
   printf("Dolittle Algorithm (ikj version - vectorized)\n");
 #elif defined KIJ
   printf("Dolittle Algorithm (kij version - baseline)\n");
-#elif defined KIJ_PAR
-  printf("Dolittle Algorithm (kij version - parallelized)\n");
 #elif defined KIJ_VEC
   printf("Dolittle Algorithm (kij version - vectorized)\n");
+#elif defined KIJ_PAR
+  printf("Dolittle Algorithm (kij version - parallelized)\n");
 #elif defined KIJ_OPT
   printf("Dolittle Algorithm (kij version - vectorized + parallelized)\n");
 #endif
