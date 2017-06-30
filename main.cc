@@ -317,7 +317,7 @@ void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch)
   }
 }
 
-void LU_decomp_kij_vec_old(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -338,7 +338,7 @@ void LU_decomp_kij_vec_old(const int n, const int lda, double* const A, double *
   }
 }
 
-void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_new(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A

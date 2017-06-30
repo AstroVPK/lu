@@ -7,6 +7,8 @@ env.Append(CPPPATH='/opt/intel/advisor/include')
 conf = Configure(env)
 if not conf.CheckLibWithHeader('m', 'math.h', 'c'):
     print 'Did not find libm'
+if not conf.CheckLibWithHeader('iomp5', 'omp.h', 'c'):
+    print 'Did not find libm'
 if not conf.CheckLibWithHeader('memkind', 'hbwmalloc.h', 'c'):
     print 'Did not find libmemkind'
 else:
