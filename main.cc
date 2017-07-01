@@ -263,7 +263,7 @@ void LU_decomp_ikj_vec(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -272,18 +272,18 @@ void LU_decomp_kij(const int n, const int lda, double* const A, double *scratch)
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  for (int k = 0; k < n-1; k++) {
+  for (size_t k = 0; k < n - 1; k++) {
     const double recAkk = 1.0/A[k*lda + k];
-    for (int i = k + 1; i < n; i++) {
+    for (size_t i = k + 1; i < n; i++) {
       A[i*lda + k] = A[i*lda + k]*recAkk;
 #pragma novector
-      for (int j = k + 1; j < n; j++)
+      for (size_t j = k + 1; j < n; j++)
         A[i*lda + j] -= A[i*lda + k]*A[k*lda + j];
     }
   }
 }
 
-void LU_decomp_kij_tiled(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -302,7 +302,7 @@ void LU_decomp_kij_tiled(const int n, const int lda, double* const A, double *sc
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n-1; k++) {
+  for (size_t k = 0; k < n - 1; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
@@ -321,7 +321,7 @@ void LU_decomp_kij_tiled(const int n, const int lda, double* const A, double *sc
   }
 }
 
-void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_vec(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -330,7 +330,7 @@ void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scra
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  for (size_t k = 0; k < n-1; k++) {
+  for (size_t k = 0; k < n - 1; k++) {
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
       A[i*lda + k] = A[i*lda + k]*recAkk;
@@ -342,7 +342,7 @@ void LU_decomp_kij_vec(const int n, const int lda, double* const A, double *scra
   }
 }
 
-void LU_decomp_kij_vec_tiled(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_vec_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -353,16 +353,16 @@ void LU_decomp_kij_vec_tiled(const int n, const int lda, double* const A, double
 
   const int tile = TILE_SIZE;
 
-  for (int i = 0; i < n; ++i) {
+  for (size_t i = 0; i < n; ++i) {
 #pragma simd
 #pragma ivdep
-    for (int j = 0; j < n; ++j) {
+    for (size_t j = 0; j < n; ++j) {
       scratch[i*lda + j] = 0.0;
     }
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n; k++) {
+  for (size_t k = 0; k < n - 1; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
@@ -384,7 +384,7 @@ void LU_decomp_kij_vec_tiled(const int n, const int lda, double* const A, double
   }
 }
 
-void LU_decomp_kij_par(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_par(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -409,7 +409,7 @@ void LU_decomp_kij_par(const int n, const int lda, double* const A, double *scra
 }
 }
 
-void LU_decomp_kij_par_tiled(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_par_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -431,7 +431,7 @@ void LU_decomp_kij_par_tiled(const int n, const int lda, double* const A, double
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n-1; k++) {
+  for (size_t k = 0; k < n - 1; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
@@ -454,7 +454,7 @@ void LU_decomp_kij_par_tiled(const int n, const int lda, double* const A, double
 }
 }
 
-void LU_decomp_kij_opt(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_opt(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -479,7 +479,7 @@ void LU_decomp_kij_opt(const int n, const int lda, double* const A, double *scra
 }
 }
 
-void LU_decomp_kij_opt_tiled(const int n, const int lda, double* const A, double *scratch) {
+void LU_decomp_kij_opt_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -502,7 +502,7 @@ void LU_decomp_kij_opt_tiled(const int n, const int lda, double* const A, double
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n-1; k++) {
+  for (size_t k = 0; k < n - 1; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
@@ -613,8 +613,8 @@ _mm_free(U);
 int main(const int argc, const char** argv) {
 
   // Problem size and other parameters
-  const int n=PROBLEM_SIZE;
-  const int lda=n+16;
+  const size_t n=PROBLEM_SIZE;
+  const size_t lda=n+16;
   const int nMatrices=NUM_MATRICES;
   const double HztoPerf = 1e-9*2.0/3.0*double(n*n*static_cast<double>(lda))*nMatrices;
 
@@ -654,7 +654,7 @@ int main(const int argc, const char** argv) {
 
   // Perform benchmark
   printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n",
-     nMatrices, n, n,
+     nMatrices, (int)n, (int)n,
 #ifndef __MIC__
      "CPU"
 #else
