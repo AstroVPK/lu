@@ -23,13 +23,13 @@
 //#define IKJ
 //#define IKJ_VEC
 //#define KIJ
-//#define KIJ_TILED
+//#define KIJ_REG
 //#define KIJ_VEC
-//#define KIJ_VEC_TILED
+//#define KIJ_VEC_REG
 //#define KIJ_PAR
-//#define KIJ_PAR_TILED
+//#define KIJ_PAR_REG
 //#define KIJ_OPT
-//#define KIJ_OPT_TILED
+//#define KIJ_OPT_REG
 
 void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -283,7 +283,7 @@ void LU_decomp_kij(const size_t n, const size_t lda, double* const A, double *sc
   }
 }
 
-void LU_decomp_kij_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
+void LU_decomp_kij_reg(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -342,7 +342,7 @@ void LU_decomp_kij_vec(const size_t n, const size_t lda, double* const A, double
   }
 }
 
-void LU_decomp_kij_vec_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
+void LU_decomp_kij_vec_reg(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -367,7 +367,8 @@ void LU_decomp_kij_vec_tiled(const size_t n, const size_t lda, double* const A, 
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
       scratch[i*lda + k] = A[i*lda + k]*recAkk;
-#pragma simd
+#pragma vector aligned
+#pragma simd aligned
 #pragma ivdep
       for (size_t j = jmin; j < n; j++) {
 	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
@@ -409,7 +410,7 @@ void LU_decomp_kij_par(const size_t n, const size_t lda, double* const A, double
 }
 }
 
-void LU_decomp_kij_par_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
+void LU_decomp_kij_par_reg(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -479,7 +480,7 @@ void LU_decomp_kij_opt(const size_t n, const size_t lda, double* const A, double
 }
 }
 
-void LU_decomp_kij_opt_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
+void LU_decomp_kij_opt_reg(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -508,6 +509,7 @@ void LU_decomp_kij_opt_tiled(const size_t n, const size_t lda, double* const A, 
 #pragma omp for
     for (size_t i = k + 1; i < n; i++) {
       scratch[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma vector aligned
 #pragma ivdep
 #pragma simd
       for (size_t j = jmin; j < n; j++) {
@@ -677,20 +679,20 @@ int main(const int argc, const char** argv) {
   printf("Dolittle Algorithm (ikj version - vectorized)\n");
 #elif defined KIJ
   printf("Dolittle Algorithm (kij version - baseline)\n");
-#elif defined KIJ_TILED
-  printf("Dolittle Algorithm (kij_tiled version - baseline)\n");
+#elif defined KIJ_REG
+  printf("Dolittle Algorithm (kij_regularized version - baseline)\n");
 #elif defined KIJ_VEC
   printf("Dolittle Algorithm (kij version - vectorized)\n");
-#elif defined KIJ_VEC_TILED
-  printf("Dolittle Algorithm (kij_tiled version - vectorized)\n");
+#elif defined KIJ_VEC_REG
+  printf("Dolittle Algorithm (kij_regularized version - vectorized)\n");
 #elif defined KIJ_PAR
   printf("Dolittle Algorithm (kij version - parallelized)\n");
-#elif defined KIJ_PAR_TILED
-  printf("Dolittle Algorithm (kij_tiled version - parallelized)\n");
+#elif defined KIJ_PAR_REG
+  printf("Dolittle Algorithm (kij_regularized version - parallelized)\n");
 #elif defined KIJ_OPT
   printf("Dolittle Algorithm (kij version - vectorized + parallelized)\n");
-#elif defined KIJ_OPT_TILED
-  printf("Dolittle Algorithm (kij_tiled version - vectorized + parallelized)\n");
+#elif defined KIJ_OPT_REG
+  printf("Dolittle Algorithm (kij_regularized version - vectorized + parallelized)\n");
 #endif
 
   double rate = 0, dRate = 0; // Benchmarking data
@@ -718,20 +720,20 @@ int main(const int argc, const char** argv) {
         LU_decomp_ikj_vec(n, lda, matrixA, scratch);
 #elif defined KIJ
         LU_decomp_kij(n, lda, matrixA, scratch);
-#elif defined KIJ_TILED
-        LU_decomp_kij_tiled(n, lda, matrixA, scratch);
+#elif defined KIJ_REG
+        LU_decomp_kij_reg(n, lda, matrixA, scratch);
 #elif defined KIJ_VEC
         LU_decomp_kij_vec(n, lda, matrixA, scratch);
-#elif defined KIJ_VEC_TILED
-        LU_decomp_kij_vec_tiled(n, lda, matrixA, scratch);
+#elif defined KIJ_VEC_REG
+        LU_decomp_kij_vec_reg(n, lda, matrixA, scratch);
 #elif defined KIJ_PAR
         LU_decomp_kij_par(n, lda, matrixA, scratch);
-#elif defined KIJ_PAR_TILED
-        LU_decomp_kij_par_tiled(n, lda, matrixA, scratch);
+#elif defined KIJ_PAR_REG
+        LU_decomp_kij_par_reg(n, lda, matrixA, scratch);
 #elif defined KIJ_OPT
         LU_decomp_kij_opt(n, lda, matrixA, scratch);
-#elif defined KIJ_OPT_TILED
-        LU_decomp_kij_opt_tiled(n, lda, matrixA, scratch);
+#elif defined KIJ_OPT_REG
+        LU_decomp_kij_opt_reg(n, lda, matrixA, scratch);
 #endif
     }
     const double tEnd = omp_get_wtime(); // End timing

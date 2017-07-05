@@ -1,7 +1,7 @@
 import os
 
 env = Environment(ENV = os.environ, CC='icc', CXX='icpc')
-env.Append(CPPFLAGS=['-xhost','-Wall','-qopenmp','-qopenmp-simd','-qopt-report'])
+env.Append(CPPFLAGS=['-xhost','-Wall','-qopenmp','-qopenmp-simd','-qopt-report', '-qopt-assume-safe-padding'])
 env.Append(LINKFLAGS=['-qopenmp','-qopenmp-simd'])
 env.Append(CPPPATH='/opt/intel/advisor/include')
 conf = Configure(env)
