@@ -11,6 +11,7 @@
 #include "advisor-annotate.h"
 
 #define PROBLEM_SIZE 128
+//#define PROBLEM_SIZE 2048
 #define NUM_MATRICES 100
 #define NUM_TRIALS 10
 #define TILE_SIZE 8
@@ -26,7 +27,7 @@
 //#define KIJ_REG
 //#define KIJ_VEC
 //#define KIJ_VEC_REG
-#define KIJ_ANNOT
+//#define KIJ_ANNOT
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
 //#define KIJ_OPT
@@ -397,6 +398,8 @@ void LU_decomp_kij_annot(const size_t n, const size_t lda, double* const A, doub
 
   const int tile = TILE_SIZE;
 
+ANNOTATE_SITE_BEGIN(InitScratch);
+ANNOTATE_ITERATION_TASK(outerLoopInit);
   for (size_t i = 0; i < n; ++i) {
 #pragma simd
 #pragma ivdep
@@ -405,12 +408,14 @@ void LU_decomp_kij_annot(const size_t n, const size_t lda, double* const A, doub
     }
     scratch[i*lda + i] = 1.0;
   }
+//ANNOTATE_SITE_END();
 
-ANNOTATE_SITE_BEGIN(solve);
+//ANNOTATE_SITE_BEGIN(Decompose);
+ANNOTATE_ITERATION_TASK(kLoop);
   for (size_t k = 0; k < n - 1; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
-ANNOTATE_ITERATION_TASK(iLoop);
+//ANNOTATE_ITERATION_TASK(iLoop);
     for (size_t i = k + 1; i < n; i++) {
       scratch[i*lda + k] = A[i*lda + k]*recAkk;
 #pragma vector aligned
@@ -421,8 +426,10 @@ ANNOTATE_ITERATION_TASK(iLoop);
       }
     }
   }
-ANNOTATE_SITE_END();
+//ANNOTATE_SITE_END();
 
+//ANNOTATE_SITE_BEGIN(CopyScratch);
+ANNOTATE_ITERATION_TASK(outerLoopCopy);
   for (size_t i = 0; i < n; ++i) {
 #pragma simd
 #pragma ivdep
@@ -430,6 +437,7 @@ ANNOTATE_SITE_END();
       A[i*lda + j] = scratch[i*lda + j];
     }
   }
+ANNOTATE_SITE_END();
 }
 
 void LU_decomp_kij_par(const size_t n, const size_t lda, double* const A, double *scratch) {
