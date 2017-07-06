@@ -32,7 +32,7 @@
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
 //#define KIJ_OPT
-//#define KIJ_OPT_REG
+#define KIJ_OPT_REG
 
 void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
