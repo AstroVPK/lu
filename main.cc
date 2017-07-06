@@ -15,6 +15,7 @@
 #define NUM_MATRICES 100
 #define NUM_TRIALS 10
 #define TILE_SIZE 8
+#define K_TILE_SIZE 8
 
 //#define IJK
 //#define IJK_PAR
@@ -32,6 +33,7 @@
 //#define KIJ_PAR_REG
 //#define KIJ_OPT
 //#define KIJ_OPT_REG
+#define KIJ_OPT_TILED
 
 void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -274,7 +276,7 @@ void LU_decomp_kij(const size_t n, const size_t lda, double* const A, double *sc
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  for (size_t k = 0; k < n - 1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
       A[i*lda + k] = A[i*lda + k]*recAkk;
@@ -304,7 +306,7 @@ void LU_decomp_kij_reg(const size_t n, const size_t lda, double* const A, double
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n - 1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
@@ -332,7 +334,7 @@ void LU_decomp_kij_vec(const size_t n, const size_t lda, double* const A, double
   __assume_aligned(A, 64);
   __assume_aligned(scratch, 64);
 
-  for (size_t k = 0; k < n - 1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
       A[i*lda + k] = A[i*lda + k]*recAkk;
@@ -364,7 +366,7 @@ void LU_decomp_kij_vec_reg(const size_t n, const size_t lda, double* const A, do
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n - 1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
@@ -412,7 +414,7 @@ ANNOTATE_ITERATION_TASK(outerLoopInit);
 
 //ANNOTATE_SITE_BEGIN(Decompose);
 ANNOTATE_ITERATION_TASK(kLoop);
-  for (size_t k = 0; k < n - 1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
 //ANNOTATE_ITERATION_TASK(iLoop);
@@ -451,7 +453,7 @@ void LU_decomp_kij_par(const size_t n, const size_t lda, double* const A, double
 
 #pragma omp parallel
 {
-  for (size_t k = 0; k < n - 1; ++k) {
+  for (size_t k = 0; k < n; ++k) {
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
     for (size_t i = k + 1; i < n; ++i) {
@@ -487,7 +489,7 @@ void LU_decomp_kij_par_reg(const size_t n, const size_t lda, double* const A, do
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n - 1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
@@ -521,7 +523,7 @@ void LU_decomp_kij_opt(const size_t n, const size_t lda, double* const A, double
 
 #pragma omp parallel
 {
-  for (size_t k = 0; k < n - 1; ++k) {
+  for (size_t k = 0; k < n; ++k) {
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
     for (size_t i = k + 1; i < n; ++i) {
@@ -558,7 +560,7 @@ void LU_decomp_kij_opt_reg(const size_t n, const size_t lda, double* const A, do
     scratch[i*lda + i] = 1.0;
   }
 
-  for (size_t k = 0; k < n - 1; k++) {
+  for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
 #pragma omp for
@@ -569,6 +571,58 @@ void LU_decomp_kij_opt_reg(const size_t n, const size_t lda, double* const A, do
 #pragma simd
       for (size_t j = jmin; j < n; j++) {
 	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
+      }
+    }
+  }
+
+#pragma omp for
+  for (size_t i = 0; i < n; ++i) {
+#pragma ivdep
+#pragma simd
+    for (size_t j = 0; j < i; ++j) {
+      A[i*lda + j] = scratch[i*lda + j];
+    }
+  }
+}
+}
+
+void LU_decomp_kij_opt_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+  const int tile = TILE_SIZE;
+  const int ktile = K_TILE_SIZE;
+
+#pragma omp parallel
+{
+#pragma omp for
+  for (size_t i = 0; i < n; ++i) {
+#pragma ivdep
+#pragma simd
+    for (size_t j = 0; j < n; ++j) {
+      scratch[i*lda + j] = 0.0;
+    }
+    scratch[i*lda + i] = 1.0;
+  }
+
+  for (size_t kk = 0; kk < n; kk += ktile) {
+    const size_t jmin = kk - kk%tile;
+    for (size_t k = kk; k < kk + ktile; ++k) {
+      const double recAkk = 1.0/A[k*lda + k];
+#pragma omp for
+      for (size_t i = k + 1; i < n; i++) {
+        scratch[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma vector aligned
+#pragma ivdep
+#pragma simd
+        for (size_t j = jmin; j < n; j++) {
+	      A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
+        }
       }
     }
   }
@@ -750,6 +804,8 @@ int main(const int argc, const char** argv) {
   printf("Dolittle Algorithm (kij version - vectorized + parallelized)\n");
 #elif defined KIJ_OPT_REG
   printf("Dolittle Algorithm (kij_regularized version - vectorized + parallelized)\n");
+#elif defined KIJ_OPT_TILED
+  printf("Dolittle Algorithm (kij_regularized_tiled version - vectorized + parallelized)\n");
 #endif
 
   double rate = 0, dRate = 0; // Benchmarking data
@@ -793,6 +849,8 @@ int main(const int argc, const char** argv) {
         LU_decomp_kij_opt(n, lda, matrixA, scratch);
 #elif defined KIJ_OPT_REG
         LU_decomp_kij_opt_reg(n, lda, matrixA, scratch);
+#elif defined KIJ_OPT_TILED
+        LU_decomp_kij_opt_tiled(n, lda, matrixA, scratch);
 #endif
     }
     const double tEnd = omp_get_wtime(); // End timing
