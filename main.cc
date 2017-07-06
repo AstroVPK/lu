@@ -734,9 +734,11 @@ int main(const int argc, const char** argv) {
   double* scratch;
   const int cache_line = 8, num_threads = omp_get_max_threads();
 #ifdef __HBM__
+  printf("Using High Bandwidth Memory!\n");
   hbw_posix_memalign((void**) &dataA, 4096, containerSize*nMatrices);
   hbw_posix_memalign((void**) &scratch, 4096, sizeof(double)*(num_threads*cache_line + n*lda) + 64);
 #else
+  printf("Not using High Bandwidth Memory!\n");
   dataA = (char*)_mm_malloc(containerSize*nMatrices, 64);
   scratch = (double*)_mm_malloc(sizeof(double)*(num_threads*cache_line + n*lda) + 64, 64);
 #endif
