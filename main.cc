@@ -672,9 +672,11 @@ void VerifyResult(const int n, const int lda, double* LU, double* refA) {
   }
   deviation1 /= (double)(n*lda);
   if (std::isnan(deviation1) || (deviation1 > 1.0e-2)) {
-    printf("ERROR: LU is not equal to A (deviation1=%e)!\n", deviation1);
-    //    exit(1);
-  }
+    printf("ERROR: LU is not equal to A (deviation1 = %e)!\n", deviation1);
+    exit(1);
+} else {
+    printf("OK: LU is equal to A (deviation1 = %e)!\n", deviation1);
+}
 
 #ifdef VERBOSE
   printf("\n(L-D)+U:\n");
