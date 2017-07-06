@@ -12,7 +12,7 @@
 
 #define PROBLEM_SIZE 128
 //#define PROBLEM_SIZE 2048
-#define NUM_MATRICES 10
+#define NUM_MATRICES 100
 #define NUM_TRIALS 10
 #define TILE_SIZE 8
 #define K_TILE_SIZE 8
@@ -29,7 +29,7 @@
 //#define KIJ_VEC
 //#define KIJ_VEC_REG
 //#define KIJ_ANNOT
-#define KIJ_ANNOT_OPT
+//#define KIJ_ANNOT_OPT
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
 //#define KIJ_OPT
