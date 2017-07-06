@@ -10,12 +10,11 @@
 
 #include "advisor-annotate.h"
 
-#define PROBLEM_SIZE 128
-//#define PROBLEM_SIZE 2048
-#define NUM_MATRICES 100
-#define NUM_TRIALS 10
+//#define PROBLEM_SIZE 128
+#define PROBLEM_SIZE 2048
+#define NUM_MATRICES 10
+#define NUM_TRIALS 5
 #define TILE_SIZE 8
-#define K_TILE_SIZE 8
 
 //#define IJK
 //#define IJK_PAR
@@ -856,7 +855,7 @@ int main(const int argc, const char** argv) {
     }
     const double tEnd = omp_get_wtime(); // End timing
 
-    if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
+    //if (trial == 1) VerifyResult(n, lda, (double*)(&dataA[0]), referenceMatrix);
 
     if (trial > skipTrials) { // Collect statistics
       rate  += HztoPerf/(tEnd - tStart);
