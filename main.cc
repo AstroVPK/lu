@@ -32,8 +32,7 @@
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
 //#define KIJ_OPT
-//#define KIJ_OPT_REG
-#define KIJ_OPT_TILED
+#define KIJ_OPT_REG
 
 void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -586,58 +585,6 @@ void LU_decomp_kij_opt_reg(const size_t n, const size_t lda, double* const A, do
 }
 }
 
-void LU_decomp_kij_opt_tiled(const size_t n, const size_t lda, double* const A, double *scratch) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-
-  __assume_aligned(A, 64);
-  __assume_aligned(scratch, 64);
-
-  const int tile = TILE_SIZE;
-  const int ktile = K_TILE_SIZE;
-
-#pragma omp parallel
-{
-#pragma omp for
-  for (size_t i = 0; i < n; ++i) {
-#pragma ivdep
-#pragma simd
-    for (size_t j = 0; j < n; ++j) {
-      scratch[i*lda + j] = 0.0;
-    }
-    scratch[i*lda + i] = 1.0;
-  }
-
-  for (size_t kk = 0; kk < n; kk += ktile) {
-    const size_t jmin = kk - kk%tile;
-    for (size_t k = kk; k < kk + ktile; ++k) {
-      const double recAkk = 1.0/A[k*lda + k];
-#pragma omp for
-      for (size_t i = k + 1; i < n; i++) {
-        scratch[i*lda + k] = A[i*lda + k]*recAkk;
-#pragma vector aligned
-#pragma ivdep
-#pragma simd
-        for (size_t j = jmin; j < n; j++) {
-	      A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
-        }
-      }
-    }
-  }
-
-#pragma omp for
-  for (size_t i = 0; i < n; ++i) {
-#pragma ivdep
-#pragma simd
-    for (size_t j = 0; j < i; ++j) {
-      A[i*lda + j] = scratch[i*lda + j];
-    }
-  }
-}
-}
-
 
 /*****************************************************************************/
 
@@ -806,8 +753,6 @@ int main(const int argc, const char** argv) {
   printf("Dolittle Algorithm (kij version - vectorized + parallelized)\n");
 #elif defined KIJ_OPT_REG
   printf("Dolittle Algorithm (kij_regularized version - vectorized + parallelized)\n");
-#elif defined KIJ_OPT_TILED
-  printf("Dolittle Algorithm (kij_regularized_tiled version - vectorized + parallelized)\n");
 #endif
 
   double rate = 0, dRate = 0; // Benchmarking data
@@ -851,8 +796,6 @@ int main(const int argc, const char** argv) {
         LU_decomp_kij_opt(n, lda, matrixA, scratch);
 #elif defined KIJ_OPT_REG
         LU_decomp_kij_opt_reg(n, lda, matrixA, scratch);
-#elif defined KIJ_OPT_TILED
-        LU_decomp_kij_opt_tiled(n, lda, matrixA, scratch);
 #endif
     }
     const double tEnd = omp_get_wtime(); // End timing
