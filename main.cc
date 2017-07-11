@@ -14,7 +14,7 @@
 #define PROBLEM_SIZE 2048
 #define NUM_MATRICES 10
 #define NUM_TRIALS 5
-#define TILE_SIZE 8
+#define TILE_SIZE 32
 
 //#define IJK
 //#define IJK_PAR
