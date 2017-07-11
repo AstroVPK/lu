@@ -30,5 +30,5 @@ else:
     else:
         env.Append(CCFLAGS=['-O3'])
 if str2bool(assembly):
-    env.Append(CCFLAGS=['-save-temps'] #,'-ip-no-inlining','-ip-no-pinlining'])
+    env.Append(CCFLAGS=['-save-temps']) #,'-ip-no-inlining','-ip-no-pinlining'])
 env.Program('luDecomp', ['main.cc'])
