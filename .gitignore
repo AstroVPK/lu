@@ -18,3 +18,4 @@ pin.log
 luDecomp
 config
 *.def
+*.s
