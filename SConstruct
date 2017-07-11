@@ -21,6 +21,7 @@ else:
 env = conf.Finish()
 debug = ARGUMENTS.get('debug', "False")
 advisor = ARGUMENTS.get('advisor', "False")
+assembly = ARGUMENTS.get('assembly', "False")
 if str2bool(debug):
     env.Append(CCFLAGS=['-g','-O0'])
 else:
@@ -28,5 +29,6 @@ else:
         env.Append(CCFLAGS=['-g','-O2'])
     else:
         env.Append(CCFLAGS=['-O3'])
-
+if str2bool(assembly):
+    env.Append(CCFLAGS=['-save-temps'] #,'-ip-no-inlining','-ip-no-pinlining'])
 env.Program('luDecomp', ['main.cc'])

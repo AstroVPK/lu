@@ -17,3 +17,4 @@ pin.log
 .sconsign.dblite
 luDecomp
 config
+*.def
