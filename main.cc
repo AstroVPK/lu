@@ -11,7 +11,7 @@
 #include "advisor-annotate.h"
 
 //#define PROBLEM_SIZE 128
-#define PROBLEM_SIZE 2048
+#define PROBLEM_SIZE 256
 #define NUM_MATRICES 10
 #define NUM_TRIALS 5
 //#define TILE_SIZE 8
