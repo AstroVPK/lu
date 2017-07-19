@@ -28,12 +28,12 @@
 //#define KIJ_REG
 //#define KIJ_VEC
 //#define KIJ_VEC_REG
-//#define KIJ_ANNOT
+#define KIJ_ANNOT
 //#define KIJ_ANNOT_OPT
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
 //#define KIJ_OPT
-#define KIJ_OPT_REG
+//#define KIJ_OPT_REG
 
 void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -401,8 +401,8 @@ void LU_decomp_kij_annot(const size_t n, const size_t lda, double* const A, doub
   const int tile = TILE_SIZE;
 
 ANNOTATE_SITE_BEGIN(Init);
-ANNOTATE_ITERATION_TASK(initLoop);
   for (size_t i = 0; i < n; ++i) {
+ANNOTATE_ITERATION_TASK(initLoop);
 #pragma ivdep
 #pragma simd
     for (size_t j = 0; j < n; ++j) {
@@ -415,9 +415,9 @@ ANNOTATE_SITE_END(Init);
 ANNOTATE_SITE_BEGIN(Decompose);
   for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
-    const double recAkk = 1.0/A[k*lda + k];
-ANNOTATE_ITERATION_TASK(iLoop);
+    const double recAkk = 1.0/A[k*lda + k];;
     for (size_t i = k + 1; i < n; i++) {
+ANNOTATE_ITERATION_TASK(iLoop)
       scratch[i*lda + k] = A[i*lda + k]*recAkk;
 #pragma vector aligned
 #pragma ivdep
@@ -430,8 +430,8 @@ ANNOTATE_ITERATION_TASK(iLoop);
 ANNOTATE_SITE_END(Decompose);
 
 ANNOTATE_SITE_BEGIN(Copy);
-ANNOTATE_ITERATION_TASK(copyLoop);
   for (size_t i = 0; i < n; ++i) {
+ANNOTATE_ITERATION_TASK(copyLoop);
 #pragma ivdep
 #pragma simd
     for (size_t j = 0; j < i; ++j) {
@@ -453,22 +453,22 @@ void LU_decomp_kij_annot_opt(const size_t n, const size_t lda, double* const A, 
   const int tile = TILE_SIZE;
 
 ANNOTATE_SITE_BEGIN(All);
-ANNOTATE_TASK_BEGIN(initLoop);
   for (size_t i = 0; i < n; ++i) {
+ANNOTATE_TASK_BEGIN(initLoop);
 #pragma ivdep
 #pragma simd
     for (size_t j = 0; j < n; ++j) {
       scratch[i*lda + j] = 0.0;
     }
     scratch[i*lda + i] = 1.0;
-  }
 ANNOTATE_TASK_END(initLoop);
+  }
 
   for (size_t k = 0; k < n; k++) {
     const size_t jmin = k - k%tile;
     const double recAkk = 1.0/A[k*lda + k];
-ANNOTATE_TASK_BEGIN(iLoop);
     for (size_t i = k + 1; i < n; i++) {
+ANNOTATE_TASK_BEGIN(iLoop);
       scratch[i*lda + k] = A[i*lda + k]*recAkk;
 #pragma vector aligned
 #pragma ivdep
@@ -476,19 +476,19 @@ ANNOTATE_TASK_BEGIN(iLoop);
       for (size_t j = jmin; j < n; j++) {
 	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
       }
-    }
 ANNOTATE_TASK_END(iLoop);
+    }
   }
 
-ANNOTATE_TASK_BEGIN(copyLoop);
   for (size_t i = 0; i < n; ++i) {
+ANNOTATE_TASK_BEGIN(copyLoop);
 #pragma ivdep
 #pragma simd
     for (size_t j = 0; j < i; ++j) {
       A[i*lda + j] = scratch[i*lda + j];
     }
-  }
 ANNOTATE_TASK_END(copyLoop);
+  }
 ANNOTATE_SITE_END(All);
 }
 

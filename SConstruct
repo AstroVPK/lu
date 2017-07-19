@@ -6,7 +6,7 @@ def str2bool(v):
 env = Environment(ENV = os.environ, CC='icc', CXX='icpc')
 env.Append(CPPFLAGS=['-xhost','-Wall','-qopenmp','-qopenmp-simd','-qopt-report', '-qopt-assume-safe-padding'])
 env.Append(LINKFLAGS=['-qopenmp','-qopenmp-simd'])
-env.Append(CPPPATH='/opt/intel/advisor/include')
+env.Append(CPPPATH='/home/AstroVPK/intel/advisor/include')
 conf = Configure(env)
 HBM = ARGUMENTS.get('HBM', "True")
 if not conf.CheckLibWithHeader('m', 'math.h', 'c'):
