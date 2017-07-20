@@ -10,8 +10,8 @@
 
 #include "advisor-annotate.h"
 
-//#define PROBLEM_SIZE 128
-#define PROBLEM_SIZE 256
+#define PROBLEM_SIZE 128
+//#define PROBLEM_SIZE 256
 #define NUM_MATRICES 10
 #define NUM_TRIALS 10
 #define TILE_SIZE 8
@@ -24,11 +24,11 @@
 //#define IJK_SUPER
 //#define IKJ
 //#define IKJ_VEC
-//#define KIJ
+#define KIJ
 //#define KIJ_REG
 //#define KIJ_VEC
 //#define KIJ_VEC_REG
-#define KIJ_ANNOT
+//#define KIJ_ANNOT
 //#define KIJ_ANNOT_OPT
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
