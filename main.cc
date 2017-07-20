@@ -461,7 +461,7 @@ ANNOTATE_TASK_BEGIN(initLoop);
       scratch[i*lda + j] = 0.0;
     }
     scratch[i*lda + i] = 1.0;
-ANNOTATE_TASK_END(initLoop);
+ANNOTATE_TASK_END(initLoop)
   }
 
   for (size_t k = 0; k < n; k++) {
