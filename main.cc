@@ -12,7 +12,8 @@
 
 #define PROBLEM_SIZE 128
 //#define PROBLEM_SIZE 256
-#define NUM_MATRICES 10
+//#define PROBLEM_SIZE 2048 
+#define NUM_MATRICES 100
 #define NUM_TRIALS 10
 #define TILE_SIZE 8
 //#define TILE_SIZE 32
@@ -24,11 +25,12 @@
 //#define IJK_SUPER
 //#define IKJ
 //#define IKJ_VEC
-#define KIJ
+//#define KIJ
 //#define KIJ_REG
 //#define KIJ_VEC
 //#define KIJ_VEC_REG
-//#define KIJ_ANNOT
+#define KIJ_ANNOTI
+//#define KIJ_ANNOTK
 //#define KIJ_ANNOT_OPT
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
@@ -389,7 +391,59 @@ void LU_decomp_kij_vec_reg(const size_t n, const size_t lda, double* const A, do
   }
 }
 
-void LU_decomp_kij_annot(const size_t n, const size_t lda, double* const A, double *scratch) {
+void LU_decomp_kij_annoti(const size_t n, const size_t lda, double* const A, double *scratch) {
+  // LU decomposition without pivoting (Doolittle algorithm)
+  // In-place decomposition of form A=LU
+  // L is returned below main diagonal of A
+  // U is returned at and above main diagonal
+
+  __assume_aligned(A, 64);
+  __assume_aligned(scratch, 64);
+
+  const int tile = TILE_SIZE;
+
+ANNOTATE_SITE_BEGIN(Init);
+  for (size_t i = 0; i < n; ++i) {
+ANNOTATE_ITERATION_TASK(initLoop);
+#pragma ivdep
+#pragma simd
+    for (size_t j = 0; j < n; ++j) {
+      scratch[i*lda + j] = 0.0;
+    }
+    scratch[i*lda + i] = 1.0;
+  }
+ANNOTATE_SITE_END(Init);
+
+  for (size_t k = 0; k < n; k++) {
+    const size_t jmin = k - k%tile;
+    const double recAkk = 1.0/A[k*lda + k];;
+ANNOTATE_SITE_BEGIN(Decompose);
+    for (size_t i = k + 1; i < n; i++) {
+ANNOTATE_ITERATION_TASK(iLoop);
+      scratch[i*lda + k] = A[i*lda + k]*recAkk;
+#pragma vector aligned
+#pragma ivdep
+#pragma simd
+      for (size_t j = jmin; j < n; j++) {
+	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
+      }
+    }
+ANNOTATE_SITE_END(Decompose);
+  }
+
+ANNOTATE_SITE_BEGIN(Copy);
+  for (size_t i = 0; i < n; ++i) {
+ANNOTATE_ITERATION_TASK(copyLoop);
+#pragma ivdep
+#pragma simd
+    for (size_t j = 0; j < i; ++j) {
+      A[i*lda + j] = scratch[i*lda + j];
+    }
+  }
+ANNOTATE_SITE_END(Copy);
+}
+
+void LU_decomp_kij_annotk(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
   // L is returned below main diagonal of A
@@ -414,10 +468,10 @@ ANNOTATE_SITE_END(Init);
 
 ANNOTATE_SITE_BEGIN(Decompose);
   for (size_t k = 0; k < n; k++) {
+ANNOTATE_ITERATION_TASK(kLoop);
     const size_t jmin = k - k%tile;
-    const double recAkk = 1.0/A[k*lda + k];;
+    const double recAkk = 1.0/A[k*lda + k];
     for (size_t i = k + 1; i < n; i++) {
-ANNOTATE_ITERATION_TASK(iLoop)
       scratch[i*lda + k] = A[i*lda + k]*recAkk;
 #pragma vector aligned
 #pragma ivdep
@@ -725,9 +779,25 @@ _mm_free(U);
 int main(const int argc, const char** argv) {
 
   // Problem size and other parameters
-  const size_t n=PROBLEM_SIZE;
-  const size_t lda=n+16;
-  const int nMatrices=NUM_MATRICES;
+  int n1;
+  const char* s1 = getenv("PROBLEM_SIZE");
+  if (s1 != NULL) {
+    n1 = atoi(s1);
+  } else {
+    n1 = PROBLEM_SIZE;
+  }
+  const size_t n = (size_t)n1;
+  const size_t lda = n + 16;
+
+  int nMatrices1;
+  const char* s2 = getenv("NUM_MATRICES");
+  if (s2 != NULL) {
+    nMatrices1 = atoi(s2);
+  } else {
+    nMatrices1 = NUM_MATRICES;
+  }
+  const size_t nMatrices = (size_t)nMatrices1;
+
   const double HztoPerf = 1e-9*2.0/3.0*double(n*n*static_cast<double>(lda))*nMatrices;
 
   const size_t containerSize = sizeof(double)*n*lda+64;
@@ -768,7 +838,7 @@ int main(const int argc, const char** argv) {
 
   // Perform benchmark
   printf("LU decomposition of %d matrices of size %dx%d on %s...\n\n",
-     nMatrices, (int)n, (int)n,
+     (int)nMatrices, (int)n, (int)n,
 #ifndef __MIC__
      "CPU"
 #else
@@ -797,8 +867,10 @@ int main(const int argc, const char** argv) {
   printf("Dolittle Algorithm (kij version - vectorized)\n");
 #elif defined KIJ_VEC_REG
   printf("Dolittle Algorithm (kij_regularized version - vectorized)\n");
-#elif defined KIJ_ANNOT
-  printf("Dolittle Algorithm (kij_regularized version - vectorized) + Annotations\n");
+#elif defined KIJ_ANNOTI
+  printf("Dolittle Algorithm (kij_regularized version - vectorized) + iLoop Annotations\n");
+#elif defined KIJ_ANNOTK
+  printf("Dolittle Algorithm (kij_regularized version - vectorized) + kLoop Annotations\n");
 #elif defined KIJ_ANNOT_OPT
   printf("Dolittle Algorithm (kij_regularized version - vectorized) + Annotations (Optimized)\n");
 #elif defined KIJ_PAR
@@ -812,7 +884,14 @@ int main(const int argc, const char** argv) {
 #endif
 
   double rate = 0, dRate = 0; // Benchmarking data
-  const int nTrials = NUM_TRIALS;
+  int nTrials1;
+  const char* s3 = getenv("NUM_TRIALS");
+  if (s3 != NULL) {
+    nTrials1  = atoi(s3);
+  } else {
+    nTrials1 = NUM_TRIALS;
+  }
+  const size_t nTrials = (size_t)nTrials1;
   const int skipTrials = 3; // First step is warm-up on Xeon Phi coprocessor
   printf("\033[1m%5s %10s %8s\033[0m\n", "Trial", "Time, s", "GFLOP/s");
   for (int trial = 1; trial <= nTrials; trial++) {
@@ -842,8 +921,10 @@ int main(const int argc, const char** argv) {
         LU_decomp_kij_vec(n, lda, matrixA, scratch);
 #elif defined KIJ_VEC_REG
         LU_decomp_kij_vec_reg(n, lda, matrixA, scratch);
-#elif defined KIJ_ANNOT
-        LU_decomp_kij_annot(n, lda, matrixA, scratch);
+#elif defined KIJ_ANNOTI
+        LU_decomp_kij_annoti(n, lda, matrixA, scratch);
+#elif defined KIJ_ANNOTK
+        LU_decomp_kij_annotk(n, lda, matrixA, scratch);
 #elif defined KIJ_ANNOT_OPT
         LU_decomp_kij_annot_opt(n, lda, matrixA, scratch);
 #elif defined KIJ_PAR
