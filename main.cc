@@ -29,13 +29,12 @@
 //#define KIJ_REG
 //#define KIJ_VEC
 //#define KIJ_VEC_REG
-#define KIJ_ANNOTI
+//#define KIJ_ANNOTI
 //#define KIJ_ANNOTK
-//#define KIJ_ANNOT_OPT
 //#define KIJ_PAR
 //#define KIJ_PAR_REG
 //#define KIJ_OPT
-//#define KIJ_OPT_REG
+#define KIJ_OPT_REG
 
 void LU_decomp_ijk(const int n, const int lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
@@ -495,57 +494,6 @@ ANNOTATE_ITERATION_TASK(copyLoop);
 ANNOTATE_SITE_END(Copy);
 }
 
-void LU_decomp_kij_annot_opt(const size_t n, const size_t lda, double* const A, double *scratch) {
-  // LU decomposition without pivoting (Doolittle algorithm)
-  // In-place decomposition of form A=LU
-  // L is returned below main diagonal of A
-  // U is returned at and above main diagonal
-
-  __assume_aligned(A, 64);
-  __assume_aligned(scratch, 64);
-
-  const int tile = TILE_SIZE;
-
-ANNOTATE_SITE_BEGIN(All);
-  for (size_t i = 0; i < n; ++i) {
-ANNOTATE_TASK_BEGIN(initLoop);
-#pragma ivdep
-#pragma simd
-    for (size_t j = 0; j < n; ++j) {
-      scratch[i*lda + j] = 0.0;
-    }
-    scratch[i*lda + i] = 1.0;
-ANNOTATE_TASK_END(initLoop)
-  }
-
-  for (size_t k = 0; k < n; k++) {
-    const size_t jmin = k - k%tile;
-    const double recAkk = 1.0/A[k*lda + k];
-    for (size_t i = k + 1; i < n; i++) {
-ANNOTATE_TASK_BEGIN(iLoop);
-      scratch[i*lda + k] = A[i*lda + k]*recAkk;
-#pragma vector aligned
-#pragma ivdep
-#pragma simd
-      for (size_t j = jmin; j < n; j++) {
-	    A[i*lda + j] -= scratch[i*lda + k]*A[k*lda + j];
-      }
-ANNOTATE_TASK_END(iLoop);
-    }
-  }
-
-  for (size_t i = 0; i < n; ++i) {
-ANNOTATE_TASK_BEGIN(copyLoop);
-#pragma ivdep
-#pragma simd
-    for (size_t j = 0; j < i; ++j) {
-      A[i*lda + j] = scratch[i*lda + j];
-    }
-ANNOTATE_TASK_END(copyLoop);
-  }
-ANNOTATE_SITE_END(All);
-}
-
 void LU_decomp_kij_par(const size_t n, const size_t lda, double* const A, double *scratch) {
   // LU decomposition without pivoting (Doolittle algorithm)
   // In-place decomposition of form A=LU
@@ -871,8 +819,6 @@ int main(const int argc, const char** argv) {
   printf("Dolittle Algorithm (kij_regularized version - vectorized) + iLoop Annotations\n");
 #elif defined KIJ_ANNOTK
   printf("Dolittle Algorithm (kij_regularized version - vectorized) + kLoop Annotations\n");
-#elif defined KIJ_ANNOT_OPT
-  printf("Dolittle Algorithm (kij_regularized version - vectorized) + Annotations (Optimized)\n");
 #elif defined KIJ_PAR
   printf("Dolittle Algorithm (kij version - parallelized)\n");
 #elif defined KIJ_PAR_REG
@@ -925,8 +871,6 @@ int main(const int argc, const char** argv) {
         LU_decomp_kij_annoti(n, lda, matrixA, scratch);
 #elif defined KIJ_ANNOTK
         LU_decomp_kij_annotk(n, lda, matrixA, scratch);
-#elif defined KIJ_ANNOT_OPT
-        LU_decomp_kij_annot_opt(n, lda, matrixA, scratch);
 #elif defined KIJ_PAR
         LU_decomp_kij_par(n, lda, matrixA, scratch);
 #elif defined KIJ_PAR_REG
